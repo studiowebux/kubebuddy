@@ -22,12 +22,11 @@ jobs:
 
       - name: Compile kubebuddy
         run: |
-          go build -o ./bin/kubebuddy-${{ matrix.platform }} ./cmd/kubebuddy
-        working-directory: src
+          go build -o ./kubebuddy-${{ matrix.platform }} ./cmd/kubebuddy
 
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            src/bin/kubebuddy-${{ matrix.platform }}
+            ./kubebuddy-${{ matrix.platform }}
