@@ -8,7 +8,7 @@ tags: [documentation, navigation]
 
 ## Table of Contents
 
-1. [Overview](overview.md)
+1. [Overview](index.md)
 2. [Getting Started](getting-started.md)
 3. [Core Concepts](concepts.md)
 4. [Resource Reference](resources.md)
