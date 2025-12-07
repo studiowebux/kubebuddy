@@ -1,0 +1,271 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/spf13/cobra"
+	"github.com/studiowebux/kubebuddy/internal/client"
+	"github.com/studiowebux/kubebuddy/internal/domain"
+	"github.com/studiowebux/kubebuddy/internal/storage"
+)
+
+func newComputeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "compute",
+		Short: "Manage compute resources",
+		Long:  `Manage compute resources (baremetal, VPS, VM)`,
+	}
+
+	cmd.AddCommand(newComputeListCmd())
+	cmd.AddCommand(newComputeGetCmd())
+	cmd.AddCommand(newComputeCreateCmd())
+	cmd.AddCommand(newComputeUpdateCmd())
+	cmd.AddCommand(newComputeDeleteCmd())
+
+	return cmd
+}
+
+func newComputeListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all compute resources",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAPIKey(cmd); err != nil {
+				return err
+			}
+
+			c := client.New(endpoint, apiKey)
+			computes, err := c.ListComputes(context.Background(), storage.ComputeFilters{})
+			if err != nil {
+				return err
+			}
+
+			printJSON(computes)
+			return nil
+		},
+	}
+}
+
+func newComputeGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <id>",
+		Short: "Get compute resource by ID",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAPIKey(cmd); err != nil {
+				return err
+			}
+
+			c := client.New(endpoint, apiKey)
+			compute, err := c.GetCompute(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+
+			printJSON(compute)
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func newComputeCreateCmd() *cobra.Command {
+	var (
+		name        string
+		computeType string
+		provider    string
+		region      string
+		tags        string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new compute resource",
+		Long:  `Create a new compute resource. Use 'component assign' to add hardware components.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAPIKey(cmd); err != nil {
+				return err
+			}
+
+			compute := &domain.Compute{
+				ID:        uuid.New().String(),
+				Name:      name,
+				Type:      domain.ComputeType(computeType),
+				Provider:  provider,
+				Region:    region,
+				Tags:      parseTags(tags),
+				Resources: make(domain.Resources),
+				State:     domain.ComputeStateActive,
+			}
+
+			c := client.New(endpoint, apiKey)
+			result, err := c.CreateCompute(context.Background(), compute)
+			if err != nil {
+				return err
+			}
+
+			printJSON(result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Compute name (required)")
+	cmd.Flags().StringVar(&computeType, "type", "baremetal", "Compute type (baremetal, vps, vm)")
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider name (required)")
+	cmd.Flags().StringVar(&region, "region", "", "Region (required)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags as key=value pairs, comma-separated (e.g., env=prod,zone=us-east)")
+
+	cmd.MarkFlagRequired("name")
+	cmd.MarkFlagRequired("provider")
+	cmd.MarkFlagRequired("region")
+
+	// Add completion for type flag
+	cmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"baremetal", "vps", "vm"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	return cmd
+}
+
+func newComputeUpdateCmd() *cobra.Command {
+	var (
+		name        string
+		computeType string
+		provider    string
+		region      string
+		tags        string
+		state       string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update <id>",
+		Short: "Update a compute resource",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAPIKey(cmd); err != nil {
+				return err
+			}
+
+			c := client.New(endpoint, apiKey)
+
+			// Get existing compute
+			existing, err := c.GetCompute(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+
+			// Update only specified fields
+			if name != "" {
+				existing.Name = name
+			}
+			if computeType != "" {
+				existing.Type = domain.ComputeType(computeType)
+			}
+			if provider != "" {
+				existing.Provider = provider
+			}
+			if region != "" {
+				existing.Region = region
+			}
+			if tags != "" {
+				existing.Tags = parseTags(tags)
+			}
+			if state != "" {
+				existing.State = domain.ComputeState(state)
+			}
+
+			result, err := c.UpdateCompute(context.Background(), args[0], existing)
+			if err != nil {
+				return err
+			}
+
+			printJSON(result)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Compute name")
+	cmd.Flags().StringVar(&computeType, "type", "", "Compute type (baremetal, vps, vm)")
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider name")
+	cmd.Flags().StringVar(&region, "region", "", "Region")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags as key=value pairs, comma-separated (e.g., env=prod,zone=us-east)")
+	cmd.Flags().StringVar(&state, "state", "", "State (active, inactive, maintenance)")
+
+	// Add completion for type flag
+	cmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"baremetal", "vps", "vm"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	// Add completion for state flag
+	cmd.RegisterFlagCompletionFunc("state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"active", "inactive", "maintenance"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	return cmd
+}
+
+func newComputeDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <id>",
+		Short: "Delete a compute resource",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAPIKey(cmd); err != nil {
+				return err
+			}
+
+			c := client.New(endpoint, apiKey)
+			if err := c.DeleteCompute(context.Background(), args[0]); err != nil {
+				return err
+			}
+
+			fmt.Println("Compute deleted successfully")
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// Helper function for compute ID completion
+func completeComputeIDs(toComplete string) []string {
+	if apiKey == "" {
+		return nil
+	}
+
+	c := client.New(endpoint, apiKey)
+	computes, err := c.ListComputes(context.Background(), storage.ComputeFilters{})
+	if err != nil {
+		return nil
+	}
+
+	var completions []string
+
+	for _, compute := range computes {
+		// Format: ID \t Name (Provider/Region)
+		completions = append(completions, fmt.Sprintf("%s\t%s (%s/%s)", compute.ID, compute.Name, compute.Provider, compute.Region))
+	}
+
+	return completions
+}

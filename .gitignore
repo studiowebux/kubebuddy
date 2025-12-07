@@ -1,0 +1,6 @@
+kubebuddy
+*.db
+*.db-shm
+*.db-wal
+
+!cmd/kubebuddy
