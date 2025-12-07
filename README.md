@@ -1,219 +1,345 @@
-# Kube Buddy
+# KubeBuddy
 
-Capacity planning system for managing compute resources (baremetal, VPS, VM) and services with intelligent placement rules.
+Capacity planning system for compute resources and services with intelligent placement rules.
 
 ## Features
 
-- **Compute Management**: Register and track baremetal servers, VPS, and VMs with dynamic resource attributes
-- **Component Management**: Hardware component catalog (CPU, RAM, Storage, GPU, NIC, PSU) with assign/unassign to computes
-- **Service Management**: Define services with min/max resource specifications
-- **Tag-Based Placement**: Kubernetes-style affinity, anti-affinity, and spread constraints
-- **Capacity Planning**: Best-fit algorithm evaluates capacity and recommends purchases when needed
-- **Journal System**: Per-compute logging with predefined and custom categories (supports markdown)
-- **API Security**: Multi-scope API keys (admin, readwrite, readonly)
-- **CLI + API**: 100% command-line driven with REST API
+- Compute resource management (baremetal, VPS, VM)
+- Hardware component catalog with RAID support
+- Service definitions with resource specifications
+- Tag-based placement constraints
+- Network management (IP, DNS, ports, firewall)
+- Capacity planning and reporting
+- Per-compute journal system
+- Multi-scope API key authentication
 
-## Quick Start
-
-### Build and Install
+## Installation
 
 ```bash
-# Build
 go build -o kubebuddy ./cmd/kubebuddy
+```
 
-# Install to PATH (optional but recommended for completion)
+Optional: Install to PATH
+
+```bash
 sudo cp kubebuddy /usr/local/bin/
 ```
 
+## Server
+
 ### Start Server
 
-**Production (admin key only):**
 ```bash
 ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key
 ```
 
-**Development (admin key + sample data):**
+### Flags
+
+| Flag                 | Type   | Default        | Description                                   |
+| -------------------- | ------ | -------------- | --------------------------------------------- |
+| `--db`               | string | `kubebuddy.db` | Database file path (supports `~` expansion)   |
+| `--port`             | string | `8080`         | Server port                                   |
+| `--create-admin-key` | bool   | `false`        | Create admin API key from `ADMIN_API_KEY` env |
+| `--seed`             | bool   | `false`        | Populate with sample data                     |
+
+### Environment Variables
+
+| Variable        | Required                        | Description         |
+| --------------- | ------------------------------- | ------------------- |
+| `ADMIN_API_KEY` | When using `--create-admin-key` | Admin API key value |
+
+### Examples
+
+Development with sample data:
+
 ```bash
 ADMIN_API_KEY=test123 kubebuddy server --create-admin-key --seed
 ```
 
-Server starts on `http://localhost:8080` (use `--port` to change)
+Custom database location:
 
-Sample data includes:
-- 3 compute resources (baremetal, VPS, VM)
-- 3 services (nginx-ingress, postgres-db, ml-worker)
-- 5 hardware components (Intel Xeon CPU, Samsung RAM, NVMe SSD, NVIDIA T4 GPU, Intel 10GbE NIC)
-- 5 component assignments (components assigned to computes)
-- 1 service assignment (nginx on baremetal)
-- Sample journal entry
-
-### Shell Completion (Powered by Cobra)
-
-KubeBuddy uses Cobra for intelligent tab completion with **dynamic server data fetching**.
-
-**Bash**:
 ```bash
-# Enable for current session
-source <(kubebuddy completion bash)
+ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/
+```
 
-# Install permanently
+## CLI
+
+### Global Flags
+
+| Flag              | Type   | Default                 | Description                            |
+| ----------------- | ------ | ----------------------- | -------------------------------------- |
+| `--endpoint`      | string | `http://localhost:8080` | API endpoint (or `KUBEBUDDY_ENDPOINT`) |
+| `--api-key`       | string |                         | API key (or `KUBEBUDDY_API_KEY`)       |
+| `--version`, `-v` | bool   |                         | Show version                           |
+
+### Environment Variables
+
+| Variable             | Default                 | Description                |
+| -------------------- | ----------------------- | -------------------------- |
+| `KUBEBUDDY_ENDPOINT` | `http://localhost:8080` | API endpoint               |
+| `KUBEBUDDY_API_KEY`  |                         | API key for authentication |
+
+### Commands
+
+#### Compute Management
+
+```bash
+kubebuddy compute list
+kubebuddy compute get <id>
+kubebuddy compute create --name server-01 --type baremetal --provider ovh --region eu
+kubebuddy compute update <id> --tags "env=prod,tier=app"
+kubebuddy compute delete <id>
+```
+
+#### Service Management
+
+```bash
+kubebuddy service list
+kubebuddy service get <id>
+kubebuddy service create --name nginx --min-cpu 1 --min-memory 512 --max-cpu 2 --max-memory 1024
+kubebuddy service delete <id>
+```
+
+#### Assignments
+
+```bash
+kubebuddy assignment list
+kubebuddy assignment create --service <service-id> --compute <compute-id>
+kubebuddy assignment delete <id>
+```
+
+#### Component Management
+
+```bash
+kubebuddy component list
+kubebuddy component create --name "Intel Xeon" --type cpu --manufacturer Intel --model "E5-2680v4" --specs '{"cores":14,"threads":28}'
+kubebuddy component assign --compute <compute-id> --component <component-id> --quantity 2 --raid raid5 --raid-group rg1
+kubebuddy component unassign <assignment-id>
+```
+
+#### Network Management
+
+IP addresses:
+
+```bash
+kubebuddy ip list
+kubebuddy ip create --address 192.168.1.100 --type private --cidr 192.168.1.0/24 --gateway 192.168.1.1
+kubebuddy ip assign --compute <compute-id> --ip <ip-id> --primary
+kubebuddy ip unassign <assignment-id>
+```
+
+DNS records:
+
+```bash
+kubebuddy dns list --zone example.com
+kubebuddy dns create --name example.com --type A --value 1.2.3.4 --zone example.com --ttl 3600
+kubebuddy dns delete <id>
+```
+
+Port assignments:
+
+```bash
+kubebuddy port list --assignment <assignment-id>
+kubebuddy port create --assignment <assignment-id> --ip <ip-id> --port 8080 --protocol tcp --service-port 80
+kubebuddy port delete <id>
+```
+
+Firewall rules:
+
+```bash
+kubebuddy firewall list
+kubebuddy firewall create --name allow-ssh --action ALLOW --protocol tcp --source any --destination any --port-start 22 --port-end 22
+kubebuddy firewall assign --compute <compute-id> --rule <rule-id>
+kubebuddy firewall unassign <assignment-id>
+```
+
+#### Capacity Planning
+
+```bash
+kubebuddy plan <service-id>
+```
+
+#### Reports
+
+```bash
+kubebuddy report compute <compute-id>
+kubebuddy report compute  # All computes
+```
+
+#### Journal
+
+```bash
+kubebuddy journal list --compute <compute-id>
+kubebuddy journal add --compute <compute-id> --category maintenance --content "Kernel upgrade"
+```
+
+#### API Keys
+
+```bash
+kubebuddy apikey list
+kubebuddy apikey create --name developer --scope readwrite --description "Dev team key"
+kubebuddy apikey delete <id>
+```
+
+**Scopes**: `admin`, `readwrite`, `readonly`
+
+## Shell Completion
+
+### Bash
+
+```bash
+source <(kubebuddy completion bash)
+```
+
+Install permanently:
+
+```bash
 kubebuddy completion bash | sudo tee /etc/bash_completion.d/kubebuddy
 ```
 
-**Zsh**:
-```bash
-# Enable for current session
-source <(kubebuddy completion zsh)
+### Zsh
 
-# Install permanently
+```bash
+source <(kubebuddy completion zsh)
+```
+
+Install permanently:
+
+```bash
 kubebuddy completion zsh > ~/.zsh/completions/_kubebuddy
 ```
 
-**Fish**:
+### Fish
+
 ```bash
 kubebuddy completion fish > ~/.config/fish/completions/kubebuddy.fish
-```
-
-**What gets auto-completed**:
-- All commands and subcommands
-- **Compute IDs with names** (dynamically fetched from server)
-- **Service IDs with names** (dynamically fetched from server)
-- **Component IDs with names** (dynamically fetched from server)
-- **Assignment IDs** (dynamically fetched from server)
-- **API Key IDs with names** (dynamically fetched from server)
-- Journal categories (maintenance, incident, deployment, hardware, network, other)
-- Compute types (baremetal, vps, vm)
-- Component types (cpu, ram, storage, gpu, nic, psu, other)
-- API key scopes (admin, readwrite, readonly)
-- All flag names and values
-
-### CLI Usage
-
-Export your API key:
-```bash
-export KUBEBUDDY_API_KEY=secret123
-```
-
-List computes:
-```bash
-kubebuddy compute list
-```
-
-List services:
-```bash
-kubebuddy service list
-```
-
-Plan capacity for a service (with tab completion):
-```bash
-kubebuddy plan <TAB><TAB>
-# Shows: service-id:service-name for all services
-```
-
-List components:
-```bash
-kubebuddy component list
-```
-
-Assign component to compute:
-```bash
-kubebuddy component assign --compute <TAB><TAB> --component <TAB><TAB> --quantity 2
-```
-
-Add journal entry (with tab completion for computes and categories):
-```bash
-kubebuddy journal add --compute <TAB><TAB> --category <TAB><TAB> --content "Kernel upgrade completed"
 ```
 
 ## API Endpoints
 
 ### Computes
-- `GET /api/v1/computes`
-- `GET /api/v1/computes/:id`
-- `POST /api/v1/computes`
-- `PUT /api/v1/computes/:id`
-- `DELETE /api/v1/computes/:id`
+
+| Method | Endpoint               | Description    |
+| ------ | ---------------------- | -------------- |
+| GET    | `/api/v1/computes`     | List computes  |
+| GET    | `/api/v1/computes/:id` | Get compute    |
+| POST   | `/api/v1/computes`     | Create compute |
+| PUT    | `/api/v1/computes/:id` | Update compute |
+| DELETE | `/api/v1/computes/:id` | Delete compute |
 
 ### Services
-- `GET /api/v1/services`
-- `GET /api/v1/services/:id`
-- `POST /api/v1/services`
-- `PUT /api/v1/services/:id`
-- `DELETE /api/v1/services/:id`
+
+| Method | Endpoint               | Description    |
+| ------ | ---------------------- | -------------- |
+| GET    | `/api/v1/services`     | List services  |
+| GET    | `/api/v1/services/:id` | Get service    |
+| POST   | `/api/v1/services`     | Create service |
+| PUT    | `/api/v1/services/:id` | Update service |
+| DELETE | `/api/v1/services/:id` | Delete service |
 
 ### Assignments
-- `GET /api/v1/assignments`
-- `POST /api/v1/assignments`
-- `DELETE /api/v1/assignments/:id`
 
-### Capacity Planning
-- `POST /api/v1/capacity/plan`
-- `GET /api/v1/capacity/report`
-
-### Journal
-- `GET /api/v1/journal`
-- `POST /api/v1/journal`
+| Method | Endpoint                  | Description       |
+| ------ | ------------------------- | ----------------- |
+| GET    | `/api/v1/assignments`     | List assignments  |
+| POST   | `/api/v1/assignments`     | Create assignment |
+| DELETE | `/api/v1/assignments/:id` | Delete assignment |
 
 ### Components
-- `GET /api/v1/components`
-- `GET /api/v1/components/:id`
-- `POST /api/v1/components`
-- `PUT /api/v1/components/:id`
-- `DELETE /api/v1/components/:id`
+
+| Method | Endpoint                 | Description      |
+| ------ | ------------------------ | ---------------- |
+| GET    | `/api/v1/components`     | List components  |
+| GET    | `/api/v1/components/:id` | Get component    |
+| POST   | `/api/v1/components`     | Create component |
+| PUT    | `/api/v1/components/:id` | Update component |
+| DELETE | `/api/v1/components/:id` | Delete component |
 
 ### Component Assignments
-- `GET /api/v1/component-assignments?compute_id=uuid`
-- `GET /api/v1/component-assignments?component_id=uuid`
-- `POST /api/v1/component-assignments`
-- `DELETE /api/v1/component-assignments/:id`
 
-### Admin (requires admin API key)
-- `GET /api/v1/admin/apikeys`
-- `POST /api/v1/admin/apikeys`
-- `DELETE /api/v1/admin/apikeys/:id`
+| Method | Endpoint                                          | Description        |
+| ------ | ------------------------------------------------- | ------------------ |
+| GET    | `/api/v1/component-assignments?compute_id=uuid`   | List by compute    |
+| GET    | `/api/v1/component-assignments?component_id=uuid` | List by component  |
+| POST   | `/api/v1/component-assignments`                   | Assign component   |
+| DELETE | `/api/v1/component-assignments/:id`               | Unassign component |
 
-## Configuration
+### IP Addresses
 
-### Server
+| Method | Endpoint          | Description |
+| ------ | ----------------- | ----------- |
+| GET    | `/api/v1/ips`     | List IPs    |
+| GET    | `/api/v1/ips/:id` | Get IP      |
+| POST   | `/api/v1/ips`     | Create IP   |
+| PUT    | `/api/v1/ips/:id` | Update IP   |
+| DELETE | `/api/v1/ips/:id` | Delete IP   |
 
-Flags:
-- `--db`: Database file path (default: `kubebuddy.db`)
-  - Supports `~` expansion (e.g., `~/.kubebuddy/kubebuddy.db`)
-  - Auto-creates directories if they don't exist
-  - If path ends with `/`, automatically appends `kubebuddy.db`
-- `--port`: Server port (default: `8080`)
-- `--create-admin-key`: Create admin API key from ADMIN_API_KEY env var
-- `--seed`: Populate database with sample data
+### IP Assignments
 
-Environment variables:
-- `ADMIN_API_KEY`: Admin API key (required when using --create-admin-key)
+| Method | Endpoint                              | Description     |
+| ------ | ------------------------------------- | --------------- |
+| GET    | `/api/v1/compute-ips?compute_id=uuid` | List by compute |
+| GET    | `/api/v1/compute-ips?ip_id=uuid`      | List by IP      |
+| POST   | `/api/v1/compute-ips`                 | Assign IP       |
+| DELETE | `/api/v1/compute-ips/:id`             | Unassign IP     |
 
-**Examples:**
-```bash
-# Database in home directory (auto-creates ~/.kubebuddy/)
-ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/
+### DNS Records
 
-# Custom directory (auto-creates /var/lib/kubebuddy/)
-ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db /var/lib/kubebuddy/
+| Method | Endpoint          | Description       |
+| ------ | ----------------- | ----------------- |
+| GET    | `/api/v1/dns`     | List DNS records  |
+| GET    | `/api/v1/dns/:id` | Get DNS record    |
+| POST   | `/api/v1/dns`     | Create DNS record |
+| PUT    | `/api/v1/dns/:id` | Update DNS record |
+| DELETE | `/api/v1/dns/:id` | Delete DNS record |
 
-# Specific filename
-ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/production.db
-```
+### Port Assignments
 
-### CLI
+| Method | Endpoint            | Description            |
+| ------ | ------------------- | ---------------------- |
+| GET    | `/api/v1/ports`     | List port assignments  |
+| GET    | `/api/v1/ports/:id` | Get port assignment    |
+| POST   | `/api/v1/ports`     | Create port assignment |
+| PUT    | `/api/v1/ports/:id` | Update port assignment |
+| DELETE | `/api/v1/ports/:id` | Delete port assignment |
 
-Environment variables:
-- `KUBEBUDDY_ENDPOINT`: API endpoint (default: `http://localhost:8080`)
-- `KUBEBUDDY_API_KEY`: API key for authentication
+### Firewall Rules
 
-## API Key Management
+| Method | Endpoint               | Description          |
+| ------ | ---------------------- | -------------------- |
+| GET    | `/api/v1/firewall`     | List firewall rules  |
+| GET    | `/api/v1/firewall/:id` | Get firewall rule    |
+| POST   | `/api/v1/firewall`     | Create firewall rule |
+| PUT    | `/api/v1/firewall/:id` | Update firewall rule |
+| DELETE | `/api/v1/firewall/:id` | Delete firewall rule |
 
-Create a new API key:
-```bash
-./kubebuddy apikey create --name developer --scope readwrite --description "Dev team key"
-```
+### Firewall Assignments
 
-Scopes:
-- `admin`: Can manage API keys
-- `readwrite`: Can read and modify resources
-- `readonly`: Can only read resources
+| Method | Endpoint                                   | Description            |
+| ------ | ------------------------------------------ | ---------------------- |
+| GET    | `/api/v1/compute-firewall?compute_id=uuid` | List by compute        |
+| GET    | `/api/v1/compute-firewall?rule_id=uuid`    | List by rule           |
+| POST   | `/api/v1/compute-firewall`                 | Assign firewall rule   |
+| DELETE | `/api/v1/compute-firewall/:id`             | Unassign firewall rule |
+
+### Journal
+
+| Method | Endpoint          | Description          |
+| ------ | ----------------- | -------------------- |
+| GET    | `/api/v1/journal` | List journal entries |
+| POST   | `/api/v1/journal` | Create journal entry |
+
+### Capacity Planning
+
+| Method | Endpoint                  | Description               |
+| ------ | ------------------------- | ------------------------- |
+| POST   | `/api/v1/capacity/plan`   | Plan capacity for service |
+| GET    | `/api/v1/capacity/report` | Get capacity report       |
+
+### Admin (requires admin scope)
+
+| Method | Endpoint                    | Description    |
+| ------ | --------------------------- | -------------- |
+| GET    | `/api/v1/admin/apikeys`     | List API keys  |
+| POST   | `/api/v1/admin/apikeys`     | Create API key |
+| DELETE | `/api/v1/admin/apikeys/:id` | Delete API key |

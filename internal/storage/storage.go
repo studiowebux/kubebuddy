@@ -17,6 +17,12 @@ type Storage interface {
 	APIKeys() APIKeyRepository
 	Components() ComponentRepository
 	ComputeComponents() ComputeComponentRepository
+	IPAddresses() IPAddressRepository
+	ComputeIPs() ComputeIPRepository
+	DNSRecords() DNSRecordRepository
+	PortAssignments() PortAssignmentRepository
+	FirewallRules() FirewallRuleRepository
+	ComputeFirewallRules() ComputeFirewallRuleRepository
 }
 
 // ComputeRepository handles compute resource persistence
@@ -120,4 +126,95 @@ type ComputeComponentRepository interface {
 	Unassign(ctx context.Context, id string) error
 	ListByCompute(ctx context.Context, computeID string) ([]*domain.ComputeComponent, error)
 	ListByComponent(ctx context.Context, componentID string) ([]*domain.ComputeComponent, error)
+}
+
+// IPAddressRepository handles IP address persistence
+type IPAddressRepository interface {
+	Create(ctx context.Context, ip *domain.IPAddress) error
+	Get(ctx context.Context, id string) (*domain.IPAddress, error)
+	GetByAddress(ctx context.Context, address string) (*domain.IPAddress, error)
+	List(ctx context.Context, filters IPAddressFilters) ([]*domain.IPAddress, error)
+	Update(ctx context.Context, ip *domain.IPAddress) error
+	Delete(ctx context.Context, id string) error
+}
+
+// IPAddressFilters for querying IP addresses
+type IPAddressFilters struct {
+	Type     string
+	Provider string
+	Region   string
+	State    string
+}
+
+// ComputeIPRepository handles IP address assignments to computes
+type ComputeIPRepository interface {
+	Assign(ctx context.Context, assignment *domain.ComputeIP) error
+	Unassign(ctx context.Context, id string) error
+	UnassignByIP(ctx context.Context, ipID string) error
+	GetByComputeAndIP(ctx context.Context, computeID, ipID string) (*domain.ComputeIP, error)
+	ListByCompute(ctx context.Context, computeID string) ([]*domain.ComputeIP, error)
+	ListByIP(ctx context.Context, ipID string) ([]*domain.ComputeIP, error)
+	GetPrimaryIP(ctx context.Context, computeID string) (*domain.ComputeIP, error)
+	UpdatePrimary(ctx context.Context, id string, isPrimary bool) error
+}
+
+// DNSRecordRepository handles DNS record persistence
+type DNSRecordRepository interface {
+	Create(ctx context.Context, record *domain.DNSRecord) error
+	Get(ctx context.Context, id string) (*domain.DNSRecord, error)
+	GetByNameTypeZone(ctx context.Context, name, recordType, zone string) (*domain.DNSRecord, error)
+	List(ctx context.Context, filters DNSRecordFilters) ([]*domain.DNSRecord, error)
+	Update(ctx context.Context, record *domain.DNSRecord) error
+	Delete(ctx context.Context, id string) error
+}
+
+// DNSRecordFilters for querying DNS records
+type DNSRecordFilters struct {
+	Type   string
+	Zone   string
+	IPID   string
+	Name   string
+}
+
+// PortAssignmentRepository handles port assignment persistence
+type PortAssignmentRepository interface {
+	Create(ctx context.Context, assignment *domain.PortAssignment) error
+	Get(ctx context.Context, id string) (*domain.PortAssignment, error)
+	GetByIPPortProtocol(ctx context.Context, ipID string, port int, protocol string) (*domain.PortAssignment, error)
+	List(ctx context.Context, filters PortAssignmentFilters) ([]*domain.PortAssignment, error)
+	Update(ctx context.Context, assignment *domain.PortAssignment) error
+	Delete(ctx context.Context, id string) error
+	DeleteByAssignment(ctx context.Context, assignmentID string) error
+}
+
+// PortAssignmentFilters for querying port assignments
+type PortAssignmentFilters struct {
+	AssignmentID string
+	IPID         string
+	Protocol     string
+}
+
+// FirewallRuleRepository handles firewall rule persistence
+type FirewallRuleRepository interface {
+	Create(ctx context.Context, rule *domain.FirewallRule) error
+	Get(ctx context.Context, id string) (*domain.FirewallRule, error)
+	GetByName(ctx context.Context, name string) (*domain.FirewallRule, error)
+	List(ctx context.Context, filters FirewallRuleFilters) ([]*domain.FirewallRule, error)
+	Update(ctx context.Context, rule *domain.FirewallRule) error
+	Delete(ctx context.Context, id string) error
+}
+
+// FirewallRuleFilters for querying firewall rules
+type FirewallRuleFilters struct {
+	Action   string
+	Protocol string
+}
+
+// ComputeFirewallRuleRepository handles firewall rule assignments to computes
+type ComputeFirewallRuleRepository interface {
+	Assign(ctx context.Context, assignment *domain.ComputeFirewallRule) error
+	Unassign(ctx context.Context, id string) error
+	ListByCompute(ctx context.Context, computeID string) ([]*domain.ComputeFirewallRule, error)
+	ListByRule(ctx context.Context, ruleID string) ([]*domain.ComputeFirewallRule, error)
+	UpdateEnabled(ctx context.Context, id string, enabled bool) error
 }

@@ -1,3 +1,9 @@
+---
+title: Resource Reference
+description: Resource keys, component specs, and units
+tags: [reference, resources, specs, components]
+---
+
 # Resource Reference
 
 ## Resource Keys

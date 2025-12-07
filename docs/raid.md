@@ -1,3 +1,9 @@
+---
+title: RAID Configuration
+description: RAID levels and capacity calculations
+tags: [storage, raid, configuration]
+---
+
 # RAID Configuration
 
 ## Supported RAID Levels

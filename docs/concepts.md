@@ -1,3 +1,9 @@
+---
+title: Core Concepts
+description: Fundamental concepts and data models
+tags: [architecture, concepts, models]
+---
+
 # Core Concepts
 
 ## Compute

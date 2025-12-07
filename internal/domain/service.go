@@ -4,13 +4,14 @@ import "time"
 
 // Service represents an application or workload with resource requirements
 type Service struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	MinSpec   Resources      `json:"min_spec"`
-	MaxSpec   Resources      `json:"max_spec"`
-	Placement PlacementRules `json:"placement"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID        string              `json:"id"`
+	Name      string              `json:"name"`
+	MinSpec   Resources           `json:"min_spec"`
+	MaxSpec   Resources           `json:"max_spec"`
+	Placement PlacementRules      `json:"placement"`
+	Ports     []PortRequirement   `json:"ports,omitempty"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 // PlacementRules defines constraints for service placement

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/studiowebux/kubebuddy/internal/client"
+	"github.com/studiowebux/kubebuddy/internal/domain"
 	"github.com/studiowebux/kubebuddy/internal/storage"
 )
 
@@ -132,6 +133,15 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 		return err
 	}
 
+	// Pre-fetch all IP assignments and IPs for this compute (optimization)
+	ipAssignments, _ := c.ListIPAssignments(ctx, computeID, "")
+	ipCache := make(map[string]*domain.IPAddress)
+	for _, ipAssignment := range ipAssignments {
+		if ip, err := c.GetIPAddress(ctx, ipAssignment.IPID); err == nil {
+			ipCache[ip.ID] = ip
+		}
+	}
+
 	// Print markdown report
 	fmt.Printf("# %s\n\n", compute.Name)
 	fmt.Printf("**Type:** %s  \n", compute.Type)
@@ -209,8 +219,111 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 				for k, v := range assignment.Allocated {
 					fmt.Printf("- %s: %v\n", k, v)
 				}
+				fmt.Println()
+			}
+
+			// Port assignments for this service
+			portAssignments, err := c.ListPortAssignments(ctx, storage.PortAssignmentFilters{AssignmentID: assignment.ID})
+			if err == nil && len(portAssignments) > 0 {
+				fmt.Printf("**Port Assignments:**\n")
+				for _, portAssignment := range portAssignments {
+					ip, ok := ipCache[portAssignment.IPID]
+					if !ok {
+						continue
+					}
+
+					description := ""
+					if portAssignment.Description != "" {
+						description = fmt.Sprintf(" - %s", portAssignment.Description)
+					}
+
+					fmt.Printf("- %s:%d/%s → %d%s\n",
+						ip.Address,
+						portAssignment.Port,
+						portAssignment.Protocol,
+						portAssignment.ServicePort,
+						description)
+				}
 			}
 			fmt.Println()
+		}
+	}
+
+	// Network Configuration
+	if len(ipAssignments) > 0 {
+		fmt.Printf("## Network Configuration\n\n")
+
+		// IP Addresses
+		fmt.Printf("### IP Addresses\n\n")
+		for _, ipAssignment := range ipAssignments {
+			ip, ok := ipCache[ipAssignment.IPID]
+			if !ok {
+				continue
+			}
+
+			primaryIndicator := ""
+			if ipAssignment.IsPrimary {
+				primaryIndicator = " (Primary)"
+			}
+
+			fmt.Printf("**%s**%s\n\n", ip.Address, primaryIndicator)
+			fmt.Printf("- **Type:** %s\n", ip.Type)
+			fmt.Printf("- **CIDR:** %s\n", ip.CIDR)
+			if ip.Gateway != "" {
+				fmt.Printf("- **Gateway:** %s\n", ip.Gateway)
+			}
+			if len(ip.DNSServers) > 0 {
+				fmt.Printf("- **DNS Servers:** %s\n", strings.Join(ip.DNSServers, ", "))
+			}
+			fmt.Printf("- **State:** %s\n", ip.State)
+
+			// DNS Records linked to this IP (only show if value matches this IP)
+			dnsRecords, err := c.ListDNSRecords(ctx, storage.DNSRecordFilters{IPID: ip.ID})
+			if err == nil && len(dnsRecords) > 0 {
+				matchingRecords := []*domain.DNSRecord{}
+				for _, dns := range dnsRecords {
+					if dns.Value == ip.Address {
+						matchingRecords = append(matchingRecords, dns)
+					}
+				}
+				if len(matchingRecords) > 0 {
+					fmt.Printf("- **DNS Records:**\n")
+					for _, dns := range matchingRecords {
+						fmt.Printf("  - %s (%s)\n", dns.Name, dns.Type)
+					}
+				}
+			}
+
+			fmt.Println()
+		}
+
+		// Firewall Rules
+		firewallAssignments, err := c.ListComputeFirewallRules(ctx, computeID, "")
+		if err == nil && len(firewallAssignments) > 0 {
+			fmt.Printf("### Firewall Rules\n\n")
+			for _, fwAssignment := range firewallAssignments {
+				rule, err := c.GetFirewallRule(ctx, fwAssignment.RuleID)
+				if err != nil {
+					continue
+				}
+
+				enabledStr := "Enabled"
+				if !fwAssignment.Enabled {
+					enabledStr = "Disabled"
+				}
+
+				fmt.Printf("**%s** (%s)\n\n", rule.Name, enabledStr)
+				fmt.Printf("- **Action:** %s\n", rule.Action)
+				fmt.Printf("- **Protocol:** %s\n", rule.Protocol)
+				fmt.Printf("- **Source:** %s\n", rule.Source)
+				fmt.Printf("- **Destination:** %s\n", rule.Destination)
+				fmt.Printf("- **Ports:** %s\n", rule.GetPortRange())
+				fmt.Printf("- **Priority:** %d\n", rule.Priority)
+				if rule.Description != "" {
+					fmt.Printf("- **Description:** %s\n", rule.Description)
+				}
+				fmt.Println()
+			}
 		}
 	}
 

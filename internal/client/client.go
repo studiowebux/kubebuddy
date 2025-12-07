@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/studiowebux/kubebuddy/internal/domain"
@@ -269,4 +270,181 @@ func (c *Client) ListComponentAssignments(ctx context.Context, filters storage.C
 	}
 	err := c.doRequest(ctx, http.MethodGet, path, nil, &assignments)
 	return assignments, err
+}
+
+// IP address methods
+func (c *Client) ListIPAddresses(ctx context.Context, filters storage.IPAddressFilters) ([]*domain.IPAddress, error) {
+	var ips []*domain.IPAddress
+	err := c.doRequest(ctx, http.MethodGet, "/api/v1/ips", nil, &ips)
+	return ips, err
+}
+
+func (c *Client) GetIPAddress(ctx context.Context, id string) (*domain.IPAddress, error) {
+	var ip domain.IPAddress
+	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/ips/%s", id), nil, &ip)
+	return &ip, err
+}
+
+func (c *Client) CreateIPAddress(ctx context.Context, ip *domain.IPAddress) (*domain.IPAddress, error) {
+	var result domain.IPAddress
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/ips", ip, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateIPAddress(ctx context.Context, id string, ip *domain.IPAddress) (*domain.IPAddress, error) {
+	var result domain.IPAddress
+	err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/ips/%s", id), ip, &result)
+	return &result, err
+}
+
+func (c *Client) DeleteIPAddress(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ips/%s", id), nil, nil)
+}
+
+// IP assignment methods
+func (c *Client) AssignIP(ctx context.Context, assignment *domain.ComputeIP) (*domain.ComputeIP, error) {
+	var result domain.ComputeIP
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/ip-assignments", assignment, &result)
+	return &result, err
+}
+
+func (c *Client) UnassignIP(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ip-assignments/%s", id), nil, nil)
+}
+
+func (c *Client) ListIPAssignments(ctx context.Context, computeID, ipID string) ([]*domain.ComputeIP, error) {
+	var assignments []*domain.ComputeIP
+	path := "/api/v1/ip-assignments"
+	if computeID != "" {
+		path += "?compute_id=" + computeID
+	} else if ipID != "" {
+		path += "?ip_id=" + ipID
+	}
+	err := c.doRequest(ctx, http.MethodGet, path, nil, &assignments)
+	return assignments, err
+}
+
+// DNS record methods
+func (c *Client) ListDNSRecords(ctx context.Context, filters storage.DNSRecordFilters) ([]*domain.DNSRecord, error) {
+	var records []*domain.DNSRecord
+	err := c.doRequest(ctx, http.MethodGet, "/api/v1/dns", nil, &records)
+	return records, err
+}
+
+func (c *Client) GetDNSRecord(ctx context.Context, id string) (*domain.DNSRecord, error) {
+	var record domain.DNSRecord
+	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/dns/%s", id), nil, &record)
+	return &record, err
+}
+
+func (c *Client) CreateDNSRecord(ctx context.Context, record *domain.DNSRecord) (*domain.DNSRecord, error) {
+	var result domain.DNSRecord
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/dns", record, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateDNSRecord(ctx context.Context, id string, record *domain.DNSRecord) (*domain.DNSRecord, error) {
+	var result domain.DNSRecord
+	err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/dns/%s", id), record, &result)
+	return &result, err
+}
+
+func (c *Client) DeleteDNSRecord(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/dns/%s", id), nil, nil)
+}
+
+// Port assignment methods
+func (c *Client) ListPortAssignments(ctx context.Context, filters storage.PortAssignmentFilters) ([]*domain.PortAssignment, error) {
+	url := "/api/v1/ports?"
+	params := []string{}
+	if filters.AssignmentID != "" {
+		params = append(params, "assignment_id="+filters.AssignmentID)
+	}
+	if filters.IPID != "" {
+		params = append(params, "ip_id="+filters.IPID)
+	}
+	if filters.Protocol != "" {
+		params = append(params, "protocol="+filters.Protocol)
+	}
+	if len(params) > 0 {
+		url += strings.Join(params, "&")
+	}
+
+	var assignments []*domain.PortAssignment
+	err := c.doRequest(ctx, http.MethodGet, url, nil, &assignments)
+	return assignments, err
+}
+
+func (c *Client) GetPortAssignment(ctx context.Context, id string) (*domain.PortAssignment, error) {
+	var assignment domain.PortAssignment
+	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/ports/%s", id), nil, &assignment)
+	return &assignment, err
+}
+
+func (c *Client) CreatePortAssignment(ctx context.Context, assignment *domain.PortAssignment) (*domain.PortAssignment, error) {
+	var result domain.PortAssignment
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/ports", assignment, &result)
+	return &result, err
+}
+
+func (c *Client) UpdatePortAssignment(ctx context.Context, id string, assignment *domain.PortAssignment) (*domain.PortAssignment, error) {
+	var result domain.PortAssignment
+	err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/ports/%s", id), assignment, &result)
+	return &result, err
+}
+
+func (c *Client) DeletePortAssignment(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ports/%s", id), nil, nil)
+}
+
+// Firewall rule methods
+func (c *Client) ListFirewallRules(ctx context.Context, filters storage.FirewallRuleFilters) ([]*domain.FirewallRule, error) {
+	var rules []*domain.FirewallRule
+	err := c.doRequest(ctx, http.MethodGet, "/api/v1/firewall-rules", nil, &rules)
+	return rules, err
+}
+
+func (c *Client) GetFirewallRule(ctx context.Context, id string) (*domain.FirewallRule, error) {
+	var rule domain.FirewallRule
+	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/firewall-rules/%s", id), nil, &rule)
+	return &rule, err
+}
+
+func (c *Client) CreateFirewallRule(ctx context.Context, rule *domain.FirewallRule) (*domain.FirewallRule, error) {
+	var result domain.FirewallRule
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/firewall-rules", rule, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateFirewallRule(ctx context.Context, id string, rule *domain.FirewallRule) (*domain.FirewallRule, error) {
+	var result domain.FirewallRule
+	err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/firewall-rules/%s", id), rule, &result)
+	return &result, err
+}
+
+func (c *Client) DeleteFirewallRule(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/firewall-rules/%s", id), nil, nil)
+}
+
+// Firewall assignment methods
+func (c *Client) ListComputeFirewallRules(ctx context.Context, computeID, ruleID string) ([]*domain.ComputeFirewallRule, error) {
+	var assignments []*domain.ComputeFirewallRule
+	path := "/api/v1/firewall-assignments"
+	if computeID != "" {
+		path += "?compute_id=" + computeID
+	} else if ruleID != "" {
+		path += "?rule_id=" + ruleID
+	}
+	err := c.doRequest(ctx, http.MethodGet, path, nil, &assignments)
+	return assignments, err
+}
+
+func (c *Client) AssignFirewallRule(ctx context.Context, assignment *domain.ComputeFirewallRule) (*domain.ComputeFirewallRule, error) {
+	var result domain.ComputeFirewallRule
+	err := c.doRequest(ctx, http.MethodPost, "/api/v1/firewall-assignments", assignment, &result)
+	return &result, err
+}
+
+func (c *Client) UnassignFirewallRule(ctx context.Context, id string) error {
+	return c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/firewall-assignments/%s", id), nil, nil)
 }

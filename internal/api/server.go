@@ -110,6 +110,63 @@ func (s *Server) setupRoutes() {
 		componentAssignments.DELETE("/:id", RequireWrite(), s.unassignComponent)
 	}
 
+	// IP address routes
+	ips := v1.Group("/ips")
+	{
+		ips.GET("", s.listIPAddresses)
+		ips.GET("/:id", s.getIPAddress)
+		ips.POST("", RequireWrite(), s.createIPAddress)
+		ips.PUT("/:id", RequireWrite(), s.updateIPAddress)
+		ips.DELETE("/:id", RequireWrite(), s.deleteIPAddress)
+	}
+
+	// IP assignment routes
+	ipAssignments := v1.Group("/ip-assignments")
+	{
+		ipAssignments.GET("", s.listComputeIPs)
+		ipAssignments.POST("", RequireWrite(), s.assignIP)
+		ipAssignments.DELETE("/:id", RequireWrite(), s.unassignIP)
+	}
+
+	// DNS record routes
+	dns := v1.Group("/dns")
+	{
+		dns.GET("", s.listDNSRecords)
+		dns.GET("/:id", s.getDNSRecord)
+		dns.POST("", RequireWrite(), s.createDNSRecord)
+		dns.PUT("/:id", RequireWrite(), s.updateDNSRecord)
+		dns.DELETE("/:id", RequireWrite(), s.deleteDNSRecord)
+	}
+
+	// Port assignment routes
+	ports := v1.Group("/ports")
+	{
+		ports.GET("", s.listPortAssignments)
+		ports.GET("/:id", s.getPortAssignment)
+		ports.POST("", RequireWrite(), s.createPortAssignment)
+		ports.PUT("/:id", RequireWrite(), s.updatePortAssignment)
+		ports.DELETE("/:id", RequireWrite(), s.deletePortAssignment)
+	}
+
+	// Firewall rule routes
+	firewallRules := v1.Group("/firewall-rules")
+	{
+		firewallRules.GET("", s.listFirewallRules)
+		firewallRules.GET("/:id", s.getFirewallRule)
+		firewallRules.POST("", RequireWrite(), s.createFirewallRule)
+		firewallRules.PUT("/:id", RequireWrite(), s.updateFirewallRule)
+		firewallRules.DELETE("/:id", RequireWrite(), s.deleteFirewallRule)
+	}
+
+	// Firewall rule assignment routes
+	firewallAssignments := v1.Group("/firewall-assignments")
+	{
+		firewallAssignments.GET("", s.listComputeFirewallRules)
+		firewallAssignments.POST("", RequireWrite(), s.assignFirewallRule)
+		firewallAssignments.DELETE("/:id", RequireWrite(), s.unassignFirewallRule)
+		firewallAssignments.PATCH("/:id/enabled", RequireWrite(), s.updateFirewallRuleEnabled)
+	}
+
 	// Admin routes (API key management)
 	admin := v1.Group("/admin")
 	admin.Use(RequireAdmin())

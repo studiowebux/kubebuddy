@@ -157,7 +157,19 @@ func completeAssignmentIDs(toComplete string) []string {
 
 	var completions []string
 	for _, assignment := range assignments {
-		completions = append(completions, assignment.ID)
+		// Fetch service and compute names for human-readable display
+		service, err := c.GetService(context.Background(), assignment.ServiceID)
+		if err != nil {
+			continue
+		}
+
+		compute, err := c.GetCompute(context.Background(), assignment.ComputeID)
+		if err != nil {
+			continue
+		}
+
+		// Format: ID \t Service: <name> → Compute: <name>
+		completions = append(completions, assignment.ID+"\t"+service.Name+" → "+compute.Name)
 	}
 
 	return completions

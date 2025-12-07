@@ -1,3 +1,9 @@
+---
+title: Command Reference
+description: Complete CLI command reference
+tags: [cli, reference, commands]
+---
+
 # Command Reference
 
 ## server
@@ -212,6 +218,357 @@ kubebuddy component list-assignments --component cpu-123
 - `--compute`: Filter by compute ID
 - `--component`: Filter by component ID
 
+## ip
+
+Manage IP addresses and assignments.
+
+### list
+
+List IP addresses.
+
+```bash
+kubebuddy ip list
+kubebuddy ip list --type public
+kubebuddy ip list --provider aws --region us-east-1
+kubebuddy ip list --state available
+```
+
+**Flags:**
+
+- `--type`: Filter by type (public, private)
+- `--provider`: Filter by provider
+- `--region`: Filter by region
+- `--state`: Filter by state (available, assigned, reserved)
+
+### get
+
+Get IP address details.
+
+```bash
+kubebuddy ip get <id>
+```
+
+### create
+
+Create IP address (upserts by address).
+
+```bash
+kubebuddy ip create \
+  --address "192.168.1.10" \
+  --type private \
+  --cidr "192.168.1.0/24" \
+  --provider "datacenter" \
+  --region "us-east"
+
+kubebuddy ip create \
+  --address "10.0.1.100" \
+  --type private \
+  --cidr "10.0.1.0/24" \
+  --gateway "10.0.1.1" \
+  --dns "8.8.8.8,8.8.4.4" \
+  --provider "aws" \
+  --region "us-east-1"
+```
+
+**Flags:**
+
+- `--address`: IP address (required)
+- `--type`: IP type - public or private (required)
+- `--cidr`: CIDR notation (e.g., 192.168.1.0/24) (required)
+- `--gateway`: Gateway address
+- `--dns`: DNS servers (comma-separated)
+- `--provider`: Provider (required)
+- `--region`: Region (required)
+- `--notes`: Notes
+- `--state`: State (available, assigned, reserved) (default: available)
+
+### delete
+
+Delete IP address.
+
+```bash
+kubebuddy ip delete <id>
+```
+
+### assign
+
+Assign IP to compute.
+
+```bash
+kubebuddy ip assign \
+  --compute server-01 \
+  --ip ip-123
+
+kubebuddy ip assign \
+  --compute server-01 \
+  --ip ip-456 \
+  --primary
+```
+
+**Flags:**
+
+- `--compute`: Compute ID (required)
+- `--ip`: IP address ID (required)
+- `--primary`: Set as primary IP
+
+### unassign
+
+Unassign IP from compute.
+
+```bash
+kubebuddy ip unassign <assignment-id>
+```
+
+### list-assignments
+
+List IP assignments.
+
+```bash
+kubebuddy ip list-assignments
+kubebuddy ip list-assignments --compute server-01
+kubebuddy ip list-assignments --ip ip-123
+```
+
+**Flags:**
+
+- `--compute`: Filter by compute ID
+- `--ip`: Filter by IP address ID
+
+## dns
+
+Manage DNS records (A, AAAA, CNAME, PTR).
+
+### list
+
+List DNS records.
+
+```bash
+kubebuddy dns list
+kubebuddy dns list --type A
+kubebuddy dns list --zone example.com
+kubebuddy dns list --name "www"
+kubebuddy dns list --ip <ip-id>
+```
+
+**Flags:**
+
+- `--type`: Filter by record type (A, AAAA, CNAME, PTR)
+- `--zone`: Filter by DNS zone
+- `--ip`: Filter by linked IP address ID
+- `--name`: Filter by name (partial match)
+
+### get
+
+Get DNS record details.
+
+```bash
+kubebuddy dns get <id>
+```
+
+### create
+
+Create DNS record (upserts by name+type+zone).
+
+```bash
+kubebuddy dns create \
+  --name "www.example.com" \
+  --type A \
+  --value "203.0.113.45" \
+  --zone "example.com"
+
+kubebuddy dns create \
+  --name "blog.example.com" \
+  --type CNAME \
+  --value "www.example.com" \
+  --zone "example.com"
+
+kubebuddy dns create \
+  --name "api.example.com" \
+  --type A \
+  --value "203.0.113.50" \
+  --zone "example.com" \
+  --ttl 1800 \
+  --ip <ip-id>
+```
+
+**Flags:**
+
+- `--name`: DNS record name (e.g., www.example.com) (required)
+- `--type`: Record type - A, AAAA, CNAME, PTR (required)
+- `--value`: Record value (IP or hostname) (required)
+- `--zone`: DNS zone (e.g., example.com) (required)
+- `--ttl`: TTL in seconds (default: 3600)
+- `--ip`: Link to IP address ID (optional)
+- `--notes`: Notes
+
+### delete
+
+Delete DNS record.
+
+```bash
+kubebuddy dns delete <id>
+```
+
+## port
+
+Manage port assignments (external to service port mappings).
+
+### list
+
+List port assignments.
+
+```bash
+kubebuddy port list
+kubebuddy port list --assignment <assignment-id>
+kubebuddy port list --ip <ip-id>
+kubebuddy port list --protocol tcp
+```
+
+**Flags:**
+
+- `--assignment`: Filter by service assignment ID
+- `--ip`: Filter by IP address ID
+- `--protocol`: Filter by protocol (tcp, udp, icmp, all)
+
+### get
+
+Get port assignment details.
+
+```bash
+kubebuddy port get <id>
+```
+
+### create
+
+Create port assignment (upserts by ip+port+protocol).
+
+```bash
+kubebuddy port create \
+  --assignment <assignment-id> \
+  --ip <ip-id> \
+  --port 8080 \
+  --protocol tcp \
+  --service-port 80 \
+  --description "HTTP traffic"
+```
+
+**Flags:**
+
+- `--assignment`: Service assignment ID (required)
+- `--ip`: IP address ID (required)
+- `--port`: External port number (required)
+- `--protocol`: Protocol - tcp, udp, icmp, all (default: tcp)
+- `--service-port`: Internal service port (required)
+- `--description`: Description
+
+### delete
+
+Delete port assignment.
+
+```bash
+kubebuddy port delete <id>
+```
+
+## firewall
+
+Manage firewall rules and assignments to computes.
+
+### list
+
+List firewall rules.
+
+```bash
+kubebuddy firewall list
+kubebuddy firewall list --action ALLOW
+kubebuddy firewall list --protocol tcp
+```
+
+**Flags:**
+
+- `--action`: Filter by action (ALLOW, DENY)
+- `--protocol`: Filter by protocol (tcp, udp, icmp, all)
+
+### get
+
+Get firewall rule details.
+
+```bash
+kubebuddy firewall get <id>
+```
+
+### create
+
+Create firewall rule (upserts by name).
+
+```bash
+kubebuddy firewall create \
+  --name "allow-http" \
+  --action ALLOW \
+  --protocol tcp \
+  --source "any" \
+  --destination "any" \
+  --port-start 80 \
+  --description "Allow HTTP traffic"
+```
+
+**Flags:**
+
+- `--name`: Rule name (required, unique)
+- `--action`: Action - ALLOW or DENY (required)
+- `--protocol`: Protocol - tcp, udp, icmp, all (required)
+- `--source`: Source CIDR, IP, or "any" (required)
+- `--destination`: Destination CIDR, IP, or "any" (required)
+- `--port-start`: Port start (0 for any)
+- `--port-end`: Port end (0 for single port)
+- `--description`: Description
+- `--priority`: Priority (default: 100, lower = higher priority)
+
+### delete
+
+Delete firewall rule.
+
+```bash
+kubebuddy firewall delete <id>
+```
+
+### assign
+
+Assign firewall rule to compute.
+
+```bash
+kubebuddy firewall assign \
+  --compute <compute-id> \
+  --rule <rule-id>
+```
+
+**Flags:**
+
+- `--compute`: Compute ID (required)
+- `--rule`: Firewall rule ID (required)
+- `--enabled`: Enable rule (default: true)
+
+### unassign
+
+Unassign firewall rule from compute.
+
+```bash
+kubebuddy firewall unassign <assignment-id>
+```
+
+### list-assignments
+
+List firewall rule assignments.
+
+```bash
+kubebuddy firewall list-assignments --compute <compute-id>
+kubebuddy firewall list-assignments --rule <rule-id>
+```
+
+**Flags:**
+
+- `--compute`: Filter by compute ID
+- `--rule`: Filter by firewall rule ID
+
 ## service
 
 Manage services.
@@ -418,10 +775,17 @@ Output includes:
 - Compute metadata (type, provider, region, state, tags)
 - Hardware components with specs
 - RAID configuration
-- Assigned services
+- Network configuration (IP addresses, DNS records, firewall rules)
+- Assigned services with port assignments
 - Resource summary (total vs allocated)
 - Storage breakdown with RAID arrays
 - Journal entries table
+
+**Networking details:**
+- IP addresses (type, address, CIDR, gateway, DNS servers, primary status)
+- DNS records (only shown when value matches the IP address)
+- Port assignments (shown inline with each service: external IP:port → service port)
+- Firewall rules assigned to the compute
 
 ## apikey
 

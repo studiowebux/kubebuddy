@@ -1,3 +1,9 @@
+---
+title: Workflow Examples
+description: Common workflows and usage patterns
+tags: [examples, workflows, tutorial]
+---
+
 # Workflow Examples
 
 ## Web Hosting Infrastructure

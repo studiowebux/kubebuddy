@@ -1,3 +1,9 @@
+---
+title: Overview
+description: KubeBuddy architecture and global configuration
+tags: [architecture, configuration, getting-started]
+---
+
 # Overview
 
 Capacity planning tool for managing compute resources and services. Server/client architecture with API key authentication.
@@ -35,3 +41,4 @@ All commands support:
 
 - `--endpoint`: API endpoint (default: http://localhost:8080 or KUBEBUDDY_ENDPOINT env)
 - `--api-key`: API key (default: KUBEBUDDY_API_KEY env)
+- `--version`, `-v`: Show version

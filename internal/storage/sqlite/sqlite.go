@@ -20,6 +20,12 @@ type SQLiteStorage struct {
 	apikeys           *apikeyRepo
 	components        *componentRepo
 	computeComponents *computeComponentRepo
+	ipAddresses          *ipAddressRepo
+	computeIPs           *computeIPRepo
+	dnsRecords           *dnsRecordRepo
+	portAssignments      *portAssignmentRepo
+	firewallRules        *firewallRuleRepo
+	computeFirewallRules *computeFirewallRuleRepo
 }
 
 // New creates a new SQLite storage instance
@@ -47,6 +53,12 @@ func New(dataSourceName string) (storage.Storage, error) {
 	s.apikeys = &apikeyRepo{db: db}
 	s.components = &componentRepo{db: db}
 	s.computeComponents = &computeComponentRepo{db: db}
+	s.ipAddresses = &ipAddressRepo{db: db}
+	s.computeIPs = &computeIPRepo{db: db}
+	s.dnsRecords = &dnsRecordRepo{db: db}
+	s.portAssignments = &portAssignmentRepo{db: db}
+	s.firewallRules = &firewallRuleRepo{db: db}
+	s.computeFirewallRules = &computeFirewallRuleRepo{db: db}
 
 	// Run migrations
 	if err := s.migrate(); err != nil {
@@ -95,6 +107,36 @@ func (s *SQLiteStorage) Components() storage.ComponentRepository {
 // ComputeComponents returns the compute-component assignment repository
 func (s *SQLiteStorage) ComputeComponents() storage.ComputeComponentRepository {
 	return s.computeComponents
+}
+
+// IPAddresses returns the IP address repository
+func (s *SQLiteStorage) IPAddresses() storage.IPAddressRepository {
+	return s.ipAddresses
+}
+
+// ComputeIPs returns the compute-IP assignment repository
+func (s *SQLiteStorage) ComputeIPs() storage.ComputeIPRepository {
+	return s.computeIPs
+}
+
+// DNSRecords returns the DNS record repository
+func (s *SQLiteStorage) DNSRecords() storage.DNSRecordRepository {
+	return s.dnsRecords
+}
+
+// PortAssignments returns the port assignment repository
+func (s *SQLiteStorage) PortAssignments() storage.PortAssignmentRepository {
+	return s.portAssignments
+}
+
+// FirewallRules returns the firewall rule repository
+func (s *SQLiteStorage) FirewallRules() storage.FirewallRuleRepository {
+	return s.firewallRules
+}
+
+// ComputeFirewallRules returns the compute-firewall rule assignment repository
+func (s *SQLiteStorage) ComputeFirewallRules() storage.ComputeFirewallRuleRepository {
+	return s.computeFirewallRules
 }
 
 // migrate runs database migrations
@@ -256,5 +298,128 @@ var migrations = map[int]string{
 
 		CREATE INDEX idx_compute_components_compute ON compute_components(compute_id);
 		CREATE INDEX idx_compute_components_component ON compute_components(component_id);
+	`,
+	8: `
+		-- IP addresses table
+		CREATE TABLE ip_addresses (
+			id TEXT PRIMARY KEY,
+			address TEXT NOT NULL UNIQUE,
+			type TEXT NOT NULL,
+			cidr TEXT NOT NULL,
+			gateway TEXT,
+			dns_servers TEXT,
+			provider TEXT NOT NULL,
+			region TEXT NOT NULL,
+			notes TEXT,
+			state TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);
+
+		CREATE INDEX idx_ip_addresses_type ON ip_addresses(type);
+		CREATE INDEX idx_ip_addresses_provider ON ip_addresses(provider);
+		CREATE INDEX idx_ip_addresses_region ON ip_addresses(region);
+		CREATE INDEX idx_ip_addresses_state ON ip_addresses(state);
+
+		-- Compute-IP assignments table
+		CREATE TABLE compute_ips (
+			id TEXT PRIMARY KEY,
+			compute_id TEXT NOT NULL,
+			ip_id TEXT NOT NULL,
+			is_primary INTEGER DEFAULT 0,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (compute_id) REFERENCES computes(id) ON DELETE CASCADE,
+			FOREIGN KEY (ip_id) REFERENCES ip_addresses(id) ON DELETE CASCADE
+		);
+
+		CREATE INDEX idx_compute_ips_compute ON compute_ips(compute_id);
+		CREATE INDEX idx_compute_ips_ip ON compute_ips(ip_id);
+		CREATE UNIQUE INDEX idx_compute_ips_unique ON compute_ips(compute_id, ip_id);
+	`,
+	9: `
+		-- DNS records table
+		CREATE TABLE dns_records (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			value TEXT NOT NULL,
+			ip_id TEXT,
+			ttl INTEGER DEFAULT 3600,
+			zone TEXT NOT NULL,
+			notes TEXT,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (ip_id) REFERENCES ip_addresses(id) ON DELETE SET NULL
+		);
+
+		CREATE INDEX idx_dns_records_name ON dns_records(name);
+		CREATE INDEX idx_dns_records_type ON dns_records(type);
+		CREATE INDEX idx_dns_records_zone ON dns_records(zone);
+		CREATE INDEX idx_dns_records_ip ON dns_records(ip_id);
+		CREATE UNIQUE INDEX idx_dns_records_unique ON dns_records(name, type, zone);
+	`,
+	10: `
+		-- Port assignments table
+		CREATE TABLE port_assignments (
+			id TEXT PRIMARY KEY,
+			assignment_id TEXT NOT NULL,
+			ip_id TEXT NOT NULL,
+			port INTEGER NOT NULL,
+			protocol TEXT NOT NULL,
+			service_port INTEGER NOT NULL,
+			description TEXT,
+			created_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+			FOREIGN KEY (ip_id) REFERENCES ip_addresses(id) ON DELETE CASCADE
+		);
+
+		CREATE INDEX idx_port_assignments_assignment ON port_assignments(assignment_id);
+		CREATE INDEX idx_port_assignments_ip ON port_assignments(ip_id);
+		CREATE INDEX idx_port_assignments_port ON port_assignments(port);
+		CREATE UNIQUE INDEX idx_port_assignments_unique ON port_assignments(ip_id, port, protocol);
+	`,
+	11: `
+		-- Firewall rules table
+		CREATE TABLE firewall_rules (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			action TEXT NOT NULL,
+			protocol TEXT NOT NULL,
+			source TEXT NOT NULL,
+			destination TEXT NOT NULL,
+			port_start INTEGER,
+			port_end INTEGER,
+			description TEXT,
+			priority INTEGER DEFAULT 100,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);
+
+		CREATE INDEX idx_firewall_rules_name ON firewall_rules(name);
+		CREATE INDEX idx_firewall_rules_priority ON firewall_rules(priority);
+
+		-- Compute-firewall rule assignments table
+		CREATE TABLE compute_firewall_rules (
+			id TEXT PRIMARY KEY,
+			compute_id TEXT NOT NULL,
+			rule_id TEXT NOT NULL,
+			enabled INTEGER DEFAULT 1,
+			created_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (compute_id) REFERENCES computes(id) ON DELETE CASCADE,
+			FOREIGN KEY (rule_id) REFERENCES firewall_rules(id) ON DELETE CASCADE
+		);
+
+		CREATE INDEX idx_compute_firewall_rules_compute ON compute_firewall_rules(compute_id);
+		CREATE INDEX idx_compute_firewall_rules_rule ON compute_firewall_rules(rule_id);
+		CREATE UNIQUE INDEX idx_compute_firewall_rules_unique ON compute_firewall_rules(compute_id, rule_id);
+	`,
+	12: `
+		-- Add updated_at column to compute_ips table
+		-- SQLite doesn't support CURRENT_TIMESTAMP as default in ALTER TABLE, so we use a constant
+		ALTER TABLE compute_ips ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT '2025-01-01 00:00:00';
+
+		-- Update existing rows to set updated_at = created_at
+		UPDATE compute_ips SET updated_at = created_at;
 	`,
 }

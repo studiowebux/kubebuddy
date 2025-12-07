@@ -1,3 +1,9 @@
+---
+title: Getting Started
+description: Quick start guide for KubeBuddy
+tags: [tutorial, quickstart, getting-started]
+---
+
 # Getting Started
 
 ## Start Server
