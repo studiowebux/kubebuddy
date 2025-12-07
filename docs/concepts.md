@@ -69,6 +69,93 @@ Allocates services to computes with resource tracking.
 
 Tracks allocated resources per service on each compute. Used to calculate available capacity.
 
+## IP Address
+
+Network addresses assigned to compute resources with CIDR, gateway, and DNS configuration.
+
+Attributes:
+- **Address**: IP address (IPv4 or IPv6)
+- **Type**: public or private
+- **CIDR**: Network CIDR notation (e.g., 192.168.1.0/24)
+- **Gateway**: Gateway address
+- **DNS Servers**: Comma-separated DNS servers
+- **Provider**: Network provider
+- **Region**: Geographic location
+- **State**: available, assigned, reserved
+- **Notes**: Additional information
+
+IP addresses support upsert (create or update by address).
+
+## IP Assignment
+
+Maps IP addresses to compute resources with primary designation.
+
+Attributes:
+- **Compute ID**: Target compute
+- **IP ID**: Assigned IP address
+- **Primary**: Whether this is the primary IP for the compute
+
+Each compute can have multiple IP addresses, but only one primary IP.
+
+## DNS Record
+
+DNS records (A, AAAA, CNAME, PTR) with optional IP linkage.
+
+Attributes:
+- **Name**: DNS record name (e.g., www.example.com)
+- **Type**: A, AAAA, CNAME, PTR
+- **Value**: IP address or hostname
+- **Zone**: DNS zone (e.g., example.com)
+- **TTL**: Time to live in seconds (default: 3600)
+- **IP ID**: Optional link to IP address
+- **Notes**: Additional information
+
+DNS records support upsert (create or update by name+type+zone).
+
+## Port Assignment
+
+Maps external ports on IP addresses to internal service ports.
+
+Attributes:
+- **Assignment ID**: Links to service-to-compute assignment
+- **IP ID**: IP address for the port
+- **Port**: External port number
+- **Protocol**: tcp, udp, icmp, all
+- **Service Port**: Internal service port
+- **Description**: Optional description
+
+Port assignments support upsert (create or update by ip+port+protocol).
+
+Example: External 203.0.113.45:8080/tcp → Internal service port 80
+
+## Firewall Rule
+
+Network access policies that can be assigned to computes.
+
+Attributes:
+- **Name**: Unique rule identifier
+- **Action**: ALLOW or DENY
+- **Protocol**: tcp, udp, icmp, all
+- **Source**: Source CIDR, IP, or "any"
+- **Destination**: Destination CIDR, IP, or "any"
+- **Port Start**: Starting port (0 for any)
+- **Port End**: Ending port (0 for single port)
+- **Priority**: Lower values = higher priority (default: 100)
+- **Description**: Optional description
+
+Firewall rules support upsert (create or update by name).
+
+## Firewall Assignment
+
+Maps firewall rules to computes with enable/disable control.
+
+Attributes:
+- **Compute ID**: Target compute
+- **Rule ID**: Firewall rule
+- **Enabled**: Whether rule is active (default: true)
+
+Multiple rules can be assigned to a single compute, evaluated by priority.
+
 ## Journal
 
 Audit log per compute for maintenance, incidents, deployments.

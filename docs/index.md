@@ -20,17 +20,12 @@ Enable shell completion for faster command usage:
 
 **Bash:**
 ```bash
-source <(kubebuddy completion bash)
+kubebuddy completion bash | sudo tee /etc/bash_completion.d/kubebuddy
 ```
 
 **Zsh:**
 ```bash
-source <(kubebuddy completion zsh)
-```
-
-**Fish:**
-```bash
-kubebuddy completion fish > ~/.config/fish/completions/kubebuddy.fish
+kubebuddy completion zsh > ~/.zsh/completions/_kubebuddy
 ```
 
 Completion includes commands, flags, compute IDs, service IDs, component IDs, and more.

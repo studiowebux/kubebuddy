@@ -4,10 +4,11 @@
 - Getting Started
   - [Getting Started](getting-started.md)
   - [Core Concepts](concepts.md)
+- Configurations
+  - [Networking](networking.md)
+  - [RAID Configuration](raid.md)
 - Examples
   - [Workflow Examples](examples.md)
 - Reference
   - [Resource Reference](resources.md)
   - [Command Reference](commands.md)
-  - [Networking](networking.md)
-  - [RAID Configuration](raid.md)
