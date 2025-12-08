@@ -23,7 +23,7 @@ jobs:
 
       - name: Build static files
         id: build
-        run: minimaldoc build --base-url /kubebuddy/ --description "Capacity planning system for compute resources and services with intelligent placement rules." --title "Kube Buddy" --llms --output ./output ./docs
+        run: minimaldoc build --base-url / --description "Capacity planning system for compute resources and services with intelligent placement rules." --title "Kube Buddy" --llms --output ./output ./docs
 
       - name: Upload static files as artifact
         id: deployment
