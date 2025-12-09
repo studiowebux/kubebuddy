@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -80,13 +82,26 @@ func newAssignmentCreateCmd() *cobra.Command {
 				return err
 			}
 
-			assignment := &domain.Assignment{
-				ID:        uuid.New().String(),
-				ServiceID: serviceID,
-				ComputeID: computeID,
+			c := client.New(endpoint, apiKey)
+
+			// Resolve service ID or name
+			service, err := c.ResolveService(context.Background(), serviceID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve service: %w", err)
 			}
 
-			c := client.New(endpoint, apiKey)
+			// Resolve compute ID or name
+			compute, err := c.ResolveCompute(context.Background(), computeID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve compute: %w", err)
+			}
+
+			assignment := &domain.Assignment{
+				ID:        uuid.New().String(),
+				ServiceID: service.ID,
+				ComputeID: compute.ID,
+			}
+
 			result, err := c.CreateAssignment(context.Background(), assignment, force)
 			if err != nil {
 				return err
@@ -97,8 +112,8 @@ func newAssignmentCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&serviceID, "service", "", "Service ID (required)")
-	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID (required)")
+	cmd.Flags().StringVar(&serviceID, "service", "", "Service ID or name (required)")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID or name (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "Force assignment even if resources insufficient")
 
 	cmd.MarkFlagRequired("service")
@@ -124,7 +139,7 @@ func newAssignmentDeleteCmd() *cobra.Command {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeAssignmentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeAssignmentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -172,5 +187,10 @@ func completeAssignmentIDs(toComplete string) []string {
 		completions = append(completions, assignment.ID+"\t"+service.Name+" → "+compute.Name)
 	}
 
+	sort.Slice(completions, func(i, j int) bool {
+		displayi := strings.Split(completions[i], "\t")[1]
+		displayj := strings.Split(completions[j], "\t")[1]
+		return displayi < displayj
+	})
 	return completions
 }

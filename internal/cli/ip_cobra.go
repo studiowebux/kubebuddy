@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -362,5 +363,10 @@ func completeIPIDs(toComplete string) []string {
 		completions = append(completions, ip.ID+"\t"+ip.Address+" ("+string(ip.Type)+" - "+ip.Provider+"/"+ip.Region+")")
 	}
 
+	sort.Slice(completions, func(i, j int) bool {
+		addri := strings.Split(completions[i], "\t")[1]
+		addrj := strings.Split(completions[j], "\t")[1]
+		return addri < addrj
+	})
 	return completions
 }

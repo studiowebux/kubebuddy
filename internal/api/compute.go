@@ -117,6 +117,26 @@ func (s *Server) updateCompute(c *gin.Context) {
 		return
 	}
 
+	// Check for name+provider+region+type conflict if any of these fields changed
+	if compute.Name != existing.Name || compute.Provider != existing.Provider ||
+		compute.Region != existing.Region || compute.Type != existing.Type {
+		conflict, err := s.store.Computes().GetByNameProviderRegionType(
+			c.Request.Context(),
+			compute.Name,
+			compute.Provider,
+			compute.Region,
+			string(compute.Type),
+		)
+		if err != nil {
+			handleError(c, http.StatusInternalServerError, "failed to check uniqueness", err)
+			return
+		}
+		if conflict != nil && conflict.ID != existing.ID {
+			handleError(c, http.StatusConflict, "compute with this name/provider/region/type already exists", nil)
+			return
+		}
+	}
+
 	// Preserve ID and timestamps
 	compute.ID = existing.ID
 	compute.CreatedAt = existing.CreatedAt

@@ -95,6 +95,19 @@ func (s *Server) updateService(c *gin.Context) {
 		return
 	}
 
+	// Check for name conflict if name is being changed
+	if service.Name != existing.Name {
+		conflict, err := s.store.Services().GetByName(c.Request.Context(), service.Name)
+		if err != nil {
+			handleError(c, http.StatusInternalServerError, "failed to check name uniqueness", err)
+			return
+		}
+		if conflict != nil {
+			handleError(c, http.StatusConflict, "service with this name already exists", nil)
+			return
+		}
+	}
+
 	// Preserve ID and timestamps
 	service.ID = existing.ID
 	service.CreatedAt = existing.CreatedAt

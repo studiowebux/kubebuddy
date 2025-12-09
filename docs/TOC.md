@@ -9,6 +9,7 @@
   - [RAID Configuration](raid.md)
 - Examples
   - [Workflow Examples](examples.md)
+  - [Multi-Role Examples](multi-role-example.md)
 - Reference
   - [Resource Reference](resources.md)
   - [Command Reference](commands.md)

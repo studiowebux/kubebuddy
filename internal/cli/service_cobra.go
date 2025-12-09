@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -49,14 +50,14 @@ func newServiceListCmd() *cobra.Command{
 
 func newServiceGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get service by ID",
+		Use:   "get <id|name>",
+		Short: "Get service by ID or name",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeServiceIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeServiceIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -64,7 +65,7 @@ func newServiceGetCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			service, err := c.GetService(context.Background(), args[0])
+			service, err := c.ResolveService(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -144,14 +145,14 @@ func newServiceCreateCmd() *cobra.Command {
 
 func newServiceDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a service",
+		Use:   "delete <id|name>",
+		Short: "Delete a service by ID or name",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeServiceIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeServiceIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -159,7 +160,12 @@ func newServiceDeleteCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			if err := c.DeleteService(context.Background(), args[0]); err != nil {
+			service, err := c.ResolveService(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+
+			if err := c.DeleteService(context.Background(), service.ID); err != nil {
 				return err
 			}
 
@@ -184,9 +190,14 @@ func completeServiceIDs(toComplete string) []string {
 	}
 
 	var completions []string
+
 	for _, service := range services {
-		completions = append(completions, fmt.Sprintf("%s\t%s", service.ID, service.Name))
+		// Only add names for autocomplete (cleaner UX)
+		completions = append(completions, service.Name)
 	}
+
+	// Sort alphabetically by name
+	sort.Strings(completions)
 
 	return completions
 }

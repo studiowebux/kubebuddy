@@ -59,14 +59,32 @@ func newPlanCmd() *cobra.Command {
 				return err
 			}
 
+			c := client.New(endpoint, apiKey)
+			ctx := context.Background()
+
+			// Resolve service ID or name
+			service, err := c.ResolveService(ctx, args[0])
+			if err != nil {
+				return fmt.Errorf("failed to resolve service: %w", err)
+			}
+
+			// Resolve compute ID or name if specified
+			resolvedComputeID := ""
+			if computeID != "" {
+				compute, err := c.ResolveCompute(ctx, computeID)
+				if err != nil {
+					return fmt.Errorf("failed to resolve compute: %w", err)
+				}
+				resolvedComputeID = compute.ID
+			}
+
 			request := domain.PlanRequest{
-				ServiceID: args[0],
+				ServiceID: service.ID,
 				Constraints: domain.Constraints{
-					ComputeID: computeID,
+					ComputeID: resolvedComputeID,
 				},
 			}
 
-			c := client.New(endpoint, apiKey)
 			result, err := c.PlanCapacity(context.Background(), request)
 			if err != nil {
 				return err
@@ -79,11 +97,6 @@ func newPlanCmd() *cobra.Command {
 			}
 
 			// User-friendly output
-			ctx := context.Background()
-			service, err := c.GetService(ctx, args[0])
-			if err != nil {
-				return err
-			}
 
 			fmt.Printf("# Capacity Planning: %s\n\n", service.Name)
 
@@ -192,7 +205,7 @@ func newPlanCmd() *cobra.Command {
 				if err == nil {
 					for _, compute := range computes {
 						// Filter to specific compute if requested
-						if computeID != "" && compute.ID != computeID {
+						if resolvedComputeID != "" && compute.ID != resolvedComputeID {
 							continue
 						}
 						fmt.Printf("\n### %s\n", compute.Name)
@@ -330,13 +343,13 @@ func newPlanCmd() *cobra.Command {
 						return fmt.Errorf("failed to create assignment: %w", err)
 					}
 					fmt.Printf("✓ Assignment created: %s\n", created.ID)
-				} else if !result.Feasible && forceFlag && computeID != "" {
+				} else if !result.Feasible && forceFlag && resolvedComputeID != "" {
 					// Force assignment to specific compute
 					fmt.Printf("\n⚠ Forcing assignment despite insufficient resources...\n")
 
 					assignment := &domain.Assignment{
 						ServiceID: service.ID,
-						ComputeID: computeID,
+						ComputeID: resolvedComputeID,
 						Allocated: service.MaxSpec,
 					}
 
@@ -357,7 +370,7 @@ func newPlanCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
-	cmd.Flags().StringVar(&computeID, "compute", "", "Plan for specific compute (optional)")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Plan for specific compute ID or name (optional)")
 	cmd.Flags().BoolVar(&assignFlag, "assign", false, "Create assignment on best candidate")
 	cmd.Flags().BoolVar(&forceFlag, "force", false, "Force assignment even if resources insufficient (requires --assign)")
 

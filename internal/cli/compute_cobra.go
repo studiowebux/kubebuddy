@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,14 +52,14 @@ func newComputeListCmd() *cobra.Command {
 
 func newComputeGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get compute resource by ID",
+		Use:   "get <id|name>",
+		Short: "Get compute resource by ID or name",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -66,7 +67,7 @@ func newComputeGetCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			compute, err := c.GetCompute(context.Background(), args[0])
+			compute, err := c.ResolveCompute(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -163,6 +164,11 @@ func newComputeCreateCmd() *cobra.Command {
 		return []string{"baremetal", "vps", "vm"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	// Add completion for provider flag
+	cmd.RegisterFlagCompletionFunc("provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeProviders(), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	// Add completion for region flag
 	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
@@ -186,14 +192,14 @@ func newComputeUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a compute resource",
+		Use:   "update <id|name>",
+		Short: "Update a compute resource by ID or name",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -203,7 +209,7 @@ func newComputeUpdateCmd() *cobra.Command {
 			c := client.New(endpoint, apiKey)
 
 			// Get existing compute
-			existing, err := c.GetCompute(context.Background(), args[0])
+			existing, err := c.ResolveCompute(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -248,7 +254,7 @@ func newComputeUpdateCmd() *cobra.Command {
 				existing.NextRenewalDate = &t
 			}
 
-			result, err := c.UpdateCompute(context.Background(), args[0], existing)
+			result, err := c.UpdateCompute(context.Background(), existing.ID, existing)
 			if err != nil {
 				return err
 			}
@@ -279,6 +285,11 @@ func newComputeUpdateCmd() *cobra.Command {
 		return []string{"active", "inactive", "maintenance"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	// Add completion for provider flag
+	cmd.RegisterFlagCompletionFunc("provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeProviders(), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	// Add completion for region flag
 	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
@@ -289,14 +300,14 @@ func newComputeUpdateCmd() *cobra.Command {
 
 func newComputeDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a compute resource",
+		Use:   "delete <id|name>",
+		Short: "Delete a compute resource by ID or name",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+			return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireAPIKey(cmd); err != nil {
@@ -304,7 +315,12 @@ func newComputeDeleteCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			if err := c.DeleteCompute(context.Background(), args[0]); err != nil {
+			compute, err := c.ResolveCompute(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+
+			if err := c.DeleteCompute(context.Background(), compute.ID); err != nil {
 				return err
 			}
 
@@ -331,9 +347,12 @@ func completeComputeIDs(toComplete string) []string {
 	var completions []string
 
 	for _, compute := range computes {
-		// Format: ID \t Name (Provider/Region)
-		completions = append(completions, fmt.Sprintf("%s\t%s (%s/%s)", compute.ID, compute.Name, compute.Provider, compute.Region))
+		// Only add names for autocomplete - no description to avoid grouping issues
+		completions = append(completions, compute.Name)
 	}
+
+	// Sort alphabetically by name
+	sort.Strings(completions)
 
 	return completions
 }
@@ -371,5 +390,43 @@ func completeRegions() []string {
 		completions = append(completions, region)
 	}
 
+	sort.Strings(completions)
+	return completions
+}
+
+// Helper function for provider completion
+func completeProviders() []string {
+	if apiKey == "" {
+		return nil
+	}
+
+	c := client.New(endpoint, apiKey)
+
+	providers := make(map[string]bool)
+
+	computes, err := c.ListComputes(context.Background(), storage.ComputeFilters{})
+	if err == nil {
+		for _, compute := range computes {
+			if compute.Provider != "" {
+				providers[compute.Provider] = true
+			}
+		}
+	}
+
+	ips, err := c.ListIPAddresses(context.Background(), storage.IPAddressFilters{})
+	if err == nil {
+		for _, ip := range ips {
+			if ip.Provider != "" {
+				providers[ip.Provider] = true
+			}
+		}
+	}
+
+	var completions []string
+	for provider := range providers {
+		completions = append(completions, provider)
+	}
+
+	sort.Strings(completions)
 	return completions
 }

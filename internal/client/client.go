@@ -91,6 +91,27 @@ func (c *Client) GetCompute(ctx context.Context, id string) (*domain.Compute, er
 	return &compute, err
 }
 
+func (c *Client) GetComputeByName(ctx context.Context, name string) (*domain.Compute, error) {
+	computes, err := c.ListComputes(ctx, storage.ComputeFilters{})
+	if err != nil {
+		return nil, err
+	}
+	for _, compute := range computes {
+		if compute.Name == name {
+			return compute, nil
+		}
+	}
+	return nil, fmt.Errorf("compute with name '%s' not found", name)
+}
+
+func (c *Client) ResolveCompute(ctx context.Context, idOrName string) (*domain.Compute, error) {
+	compute, err := c.GetCompute(ctx, idOrName)
+	if err == nil {
+		return compute, nil
+	}
+	return c.GetComputeByName(ctx, idOrName)
+}
+
 func (c *Client) CreateCompute(ctx context.Context, compute *domain.Compute) (*domain.Compute, error) {
 	var result domain.Compute
 	err := c.doRequest(ctx, http.MethodPost, "/api/v1/computes", compute, &result)
@@ -118,6 +139,27 @@ func (c *Client) GetService(ctx context.Context, id string) (*domain.Service, er
 	var service domain.Service
 	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/services/%s", id), nil, &service)
 	return &service, err
+}
+
+func (c *Client) GetServiceByName(ctx context.Context, name string) (*domain.Service, error) {
+	services, err := c.ListServices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, service := range services {
+		if service.Name == name {
+			return service, nil
+		}
+	}
+	return nil, fmt.Errorf("service with name '%s' not found", name)
+}
+
+func (c *Client) ResolveService(ctx context.Context, idOrName string) (*domain.Service, error) {
+	service, err := c.GetService(ctx, idOrName)
+	if err == nil {
+		return service, nil
+	}
+	return c.GetServiceByName(ctx, idOrName)
 }
 
 func (c *Client) CreateService(ctx context.Context, service *domain.Service) (*domain.Service, error) {
@@ -231,6 +273,27 @@ func (c *Client) GetComponent(ctx context.Context, id string) (*domain.Component
 	var component domain.Component
 	err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/components/%s", id), nil, &component)
 	return &component, err
+}
+
+func (c *Client) GetComponentByName(ctx context.Context, name string) (*domain.Component, error) {
+	components, err := c.ListComponents(ctx, storage.ComponentFilters{})
+	if err != nil {
+		return nil, err
+	}
+	for _, component := range components {
+		if component.Name == name {
+			return component, nil
+		}
+	}
+	return nil, fmt.Errorf("component with name '%s' not found", name)
+}
+
+func (c *Client) ResolveComponent(ctx context.Context, idOrName string) (*domain.Component, error) {
+	component, err := c.GetComponent(ctx, idOrName)
+	if err == nil {
+		return component, nil
+	}
+	return c.GetComponentByName(ctx, idOrName)
 }
 
 func (c *Client) CreateComponent(ctx context.Context, component *domain.Component) (*domain.Component, error) {

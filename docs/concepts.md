@@ -16,7 +16,7 @@ Attributes:
 - **Provider**: Cloud or hosting provider
 - **Region**: Geographic location
 - **State**: active, inactive, maintenance
-- **Tags**: Key-value metadata for placement rules
+- **Tags**: Key-value metadata for placement rules. Use separate tags for multiple roles (e.g., `role-cloud=true`, `role-database=true`, `role-logs=true`)
 - **Billing**: Monthly cost, annual cost, contract end date, renewal date (optional)
 
 ## Component
@@ -60,9 +60,14 @@ Resource keys:
 - `gpu`: Number of GPUs
 
 Placement rules:
-- **Affinity**: Must match tags
-- **Anti-affinity**: Must NOT match tags
+- **Affinity**: Must match tags using `MatchLabels` (exact key-value match) or `MatchExpressions` (operators: In, NotIn, Exists, DoesNotExist)
+- **Anti-affinity**: Must NOT match tags (same matching logic as affinity)
 - **Spread Max**: Max instances per compute
+
+Tag matching examples:
+- Match role tags: `{"matchExpressions": [{"key": "role-database", "operator": "Exists"}]}`
+- Match environment: `{"matchLabels": {"env": "prod"}}`
+- Exclude development: `{"matchExpressions": [{"key": "env", "operator": "NotIn", "values": ["dev", "staging"]}]}`
 
 ## Assignment
 

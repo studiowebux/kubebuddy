@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,7 +92,7 @@ func newComponentGetCmd() *cobra.Command {
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
-				return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+				return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -187,7 +188,7 @@ func newComponentDeleteCmd() *cobra.Command {
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
-				return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+				return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -257,7 +258,7 @@ func newComponentAssignCmd() *cobra.Command {
 	})
 
 	cmd.RegisterFlagCompletionFunc("component", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+		return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 	})
 
 	return cmd
@@ -322,7 +323,7 @@ func newComponentListAssignmentsCmd() *cobra.Command {
 	})
 
 	cmd.RegisterFlagCompletionFunc("component", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
+		return completeComponentIDs(toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 	})
 
 	return cmd
@@ -342,9 +343,12 @@ func completeComponentIDs(toComplete string) []string {
 	var completions []string
 
 	for _, component := range components {
-		// Format: ID \t Name (Manufacturer Model)
-		completions = append(completions, component.ID+"\t"+component.Name+" ("+component.Manufacturer+" "+component.Model+")")
+		// Only add names for autocomplete - no description to avoid grouping issues
+		completions = append(completions, component.Name)
 	}
+
+	// Sort alphabetically by name
+	sort.Strings(completions)
 
 	return completions
 }
