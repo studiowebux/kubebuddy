@@ -6,3 +6,5 @@ kubebuddy
 !cmd/kubebuddy
 
 output/
+.DS_Store
+logo

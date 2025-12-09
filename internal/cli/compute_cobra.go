@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -80,11 +81,15 @@ func newComputeGetCmd() *cobra.Command {
 
 func newComputeCreateCmd() *cobra.Command {
 	var (
-		name        string
-		computeType string
-		provider    string
-		region      string
-		tags        string
+		name            string
+		computeType     string
+		provider        string
+		region          string
+		tags            string
+		monthlyCost     float64
+		annualCost      float64
+		contractEnd     string
+		renewalDate     string
 	)
 
 	cmd := &cobra.Command{
@@ -107,6 +112,27 @@ func newComputeCreateCmd() *cobra.Command {
 				State:     domain.ComputeStateActive,
 			}
 
+			if cmd.Flags().Changed("monthly-cost") {
+				compute.MonthlyCost = &monthlyCost
+			}
+			if cmd.Flags().Changed("annual-cost") {
+				compute.AnnualCost = &annualCost
+			}
+			if contractEnd != "" {
+				t, err := time.Parse("2006-01-02", contractEnd)
+				if err != nil {
+					return fmt.Errorf("invalid contract-end date format (use YYYY-MM-DD): %w", err)
+				}
+				compute.ContractEndDate = &t
+			}
+			if renewalDate != "" {
+				t, err := time.Parse("2006-01-02", renewalDate)
+				if err != nil {
+					return fmt.Errorf("invalid renewal-date format (use YYYY-MM-DD): %w", err)
+				}
+				compute.NextRenewalDate = &t
+			}
+
 			c := client.New(endpoint, apiKey)
 			result, err := c.CreateCompute(context.Background(), compute)
 			if err != nil {
@@ -123,6 +149,10 @@ func newComputeCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&provider, "provider", "", "Provider name (required)")
 	cmd.Flags().StringVar(&region, "region", "", "Region (required)")
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags as key=value pairs, comma-separated (e.g., env=prod,zone=us-east)")
+	cmd.Flags().Float64Var(&monthlyCost, "monthly-cost", 0, "Monthly cost")
+	cmd.Flags().Float64Var(&annualCost, "annual-cost", 0, "Annual cost")
+	cmd.Flags().StringVar(&contractEnd, "contract-end", "", "Contract end date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&renewalDate, "renewal-date", "", "Next renewal date (YYYY-MM-DD)")
 
 	cmd.MarkFlagRequired("name")
 	cmd.MarkFlagRequired("provider")
@@ -133,17 +163,26 @@ func newComputeCreateCmd() *cobra.Command {
 		return []string{"baremetal", "vps", "vm"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	// Add completion for region flag
+	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 
 func newComputeUpdateCmd() *cobra.Command {
 	var (
-		name        string
-		computeType string
-		provider    string
-		region      string
-		tags        string
-		state       string
+		name            string
+		computeType     string
+		provider        string
+		region          string
+		tags            string
+		state           string
+		monthlyCost     float64
+		annualCost      float64
+		contractEnd     string
+		renewalDate     string
 	)
 
 	cmd := &cobra.Command{
@@ -188,6 +227,26 @@ func newComputeUpdateCmd() *cobra.Command {
 			if state != "" {
 				existing.State = domain.ComputeState(state)
 			}
+			if cmd.Flags().Changed("monthly-cost") {
+				existing.MonthlyCost = &monthlyCost
+			}
+			if cmd.Flags().Changed("annual-cost") {
+				existing.AnnualCost = &annualCost
+			}
+			if contractEnd != "" {
+				t, err := time.Parse("2006-01-02", contractEnd)
+				if err != nil {
+					return fmt.Errorf("invalid contract-end date format (use YYYY-MM-DD): %w", err)
+				}
+				existing.ContractEndDate = &t
+			}
+			if renewalDate != "" {
+				t, err := time.Parse("2006-01-02", renewalDate)
+				if err != nil {
+					return fmt.Errorf("invalid renewal-date format (use YYYY-MM-DD): %w", err)
+				}
+				existing.NextRenewalDate = &t
+			}
 
 			result, err := c.UpdateCompute(context.Background(), args[0], existing)
 			if err != nil {
@@ -205,6 +264,10 @@ func newComputeUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&region, "region", "", "Region")
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags as key=value pairs, comma-separated (e.g., env=prod,zone=us-east)")
 	cmd.Flags().StringVar(&state, "state", "", "State (active, inactive, maintenance)")
+	cmd.Flags().Float64Var(&monthlyCost, "monthly-cost", 0, "Monthly cost")
+	cmd.Flags().Float64Var(&annualCost, "annual-cost", 0, "Annual cost")
+	cmd.Flags().StringVar(&contractEnd, "contract-end", "", "Contract end date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&renewalDate, "renewal-date", "", "Next renewal date (YYYY-MM-DD)")
 
 	// Add completion for type flag
 	cmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -214,6 +277,11 @@ func newComputeUpdateCmd() *cobra.Command {
 	// Add completion for state flag
 	cmd.RegisterFlagCompletionFunc("state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"active", "inactive", "maintenance"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	// Add completion for region flag
+	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd
@@ -265,6 +333,42 @@ func completeComputeIDs(toComplete string) []string {
 	for _, compute := range computes {
 		// Format: ID \t Name (Provider/Region)
 		completions = append(completions, fmt.Sprintf("%s\t%s (%s/%s)", compute.ID, compute.Name, compute.Provider, compute.Region))
+	}
+
+	return completions
+}
+
+// Helper function for region completion
+func completeRegions() []string {
+	if apiKey == "" {
+		return nil
+	}
+
+	c := client.New(endpoint, apiKey)
+
+	regions := make(map[string]bool)
+
+	computes, err := c.ListComputes(context.Background(), storage.ComputeFilters{})
+	if err == nil {
+		for _, compute := range computes {
+			if compute.Region != "" {
+				regions[compute.Region] = true
+			}
+		}
+	}
+
+	ips, err := c.ListIPAddresses(context.Background(), storage.IPAddressFilters{})
+	if err == nil {
+		for _, ip := range ips {
+			if ip.Region != "" {
+				regions[ip.Region] = true
+			}
+		}
+	}
+
+	var completions []string
+	for region := range regions {
+		completions = append(completions, region)
 	}
 
 	return completions

@@ -77,6 +77,10 @@ func newIPListCmd() *cobra.Command {
 		return []string{"available", "assigned", "reserved"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 
@@ -189,6 +193,10 @@ func newIPCreateCmd() *cobra.Command {
 
 	cmd.RegisterFlagCompletionFunc("state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"available", "assigned", "reserved"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
+	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/studiowebux/kubebuddy/internal/storage"
@@ -155,8 +156,17 @@ func (s *SQLiteStorage) migrate() error {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
-	// Run migrations
-	for version, migration := range migrations {
+	// Get sorted migration versions
+	versions := make([]int, 0, len(migrations))
+	for version := range migrations {
+		versions = append(versions, version)
+	}
+	sort.Ints(versions)
+
+	// Run migrations in order
+	for _, version := range versions {
+		migration := migrations[version]
+
 		// Check if migration already applied
 		var count int
 		err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM migrations WHERE version = ?", version).Scan(&count)
@@ -415,11 +425,16 @@ var migrations = map[int]string{
 		CREATE UNIQUE INDEX idx_compute_firewall_rules_unique ON compute_firewall_rules(compute_id, rule_id);
 	`,
 	12: `
-		-- Add updated_at column to compute_ips table
-		-- SQLite doesn't support CURRENT_TIMESTAMP as default in ALTER TABLE, so we use a constant
-		ALTER TABLE compute_ips ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT '2025-01-01 00:00:00';
-
-		-- Update existing rows to set updated_at = created_at
-		UPDATE compute_ips SET updated_at = created_at;
+		-- This migration is no longer needed as migration 8 already creates compute_ips with updated_at
+		-- Keeping for backwards compatibility with existing databases
+		-- No-op migration
+		SELECT 1;
+	`,
+	13: `
+		-- Add billing fields to computes table
+		ALTER TABLE computes ADD COLUMN monthly_cost REAL;
+		ALTER TABLE computes ADD COLUMN annual_cost REAL;
+		ALTER TABLE computes ADD COLUMN contract_end_date TIMESTAMP;
+		ALTER TABLE computes ADD COLUMN next_renewal_date TIMESTAMP;
 	`,
 }

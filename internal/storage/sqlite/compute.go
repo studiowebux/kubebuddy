@@ -26,10 +26,12 @@ func (r *computeRepo) Create(ctx context.Context, compute *domain.Compute) error
 	compute.UpdatedAt = now
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO computes (id, name, type, provider, region, tags, state, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO computes (id, name, type, provider, region, tags, state, created_at, updated_at,
+			monthly_cost, annual_cost, contract_end_date, next_renewal_date)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, compute.ID, compute.Name, compute.Type, compute.Provider, compute.Region,
-	   string(tagsJSON), compute.State, compute.CreatedAt, compute.UpdatedAt)
+	   string(tagsJSON), compute.State, compute.CreatedAt, compute.UpdatedAt,
+	   compute.MonthlyCost, compute.AnnualCost, compute.ContractEndDate, compute.NextRenewalDate)
 
 	if err != nil {
 		return fmt.Errorf("failed to create compute: %w", err)
@@ -43,11 +45,13 @@ func (r *computeRepo) Get(ctx context.Context, id string) (*domain.Compute, erro
 	var tagsJSON string
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, name, type, provider, region, tags, state, created_at, updated_at
+		SELECT id, name, type, provider, region, tags, state, created_at, updated_at,
+			monthly_cost, annual_cost, contract_end_date, next_renewal_date
 		FROM computes
 		WHERE id = ?
 	`, id).Scan(&compute.ID, &compute.Name, &compute.Type, &compute.Provider, &compute.Region,
-		&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt)
+		&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt,
+		&compute.MonthlyCost, &compute.AnnualCost, &compute.ContractEndDate, &compute.NextRenewalDate)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("compute not found")
@@ -68,11 +72,13 @@ func (r *computeRepo) GetByNameProviderRegionType(ctx context.Context, name, pro
 	var tagsJSON string
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, name, type, provider, region, tags, state, created_at, updated_at
+		SELECT id, name, type, provider, region, tags, state, created_at, updated_at,
+			monthly_cost, annual_cost, contract_end_date, next_renewal_date
 		FROM computes
 		WHERE name = ? AND provider = ? AND region = ? AND type = ?
 	`, name, provider, region, computeType).Scan(&compute.ID, &compute.Name, &compute.Type, &compute.Provider, &compute.Region,
-		&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt)
+		&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt,
+		&compute.MonthlyCost, &compute.AnnualCost, &compute.ContractEndDate, &compute.NextRenewalDate)
 
 	if err == sql.ErrNoRows {
 		return nil, nil // Return nil if not found (not an error for upsert logic)
@@ -90,7 +96,8 @@ func (r *computeRepo) GetByNameProviderRegionType(ctx context.Context, name, pro
 
 func (r *computeRepo) List(ctx context.Context, filters storage.ComputeFilters) ([]*domain.Compute, error) {
 	query := `
-		SELECT id, name, type, provider, region, tags, state, created_at, updated_at
+		SELECT id, name, type, provider, region, tags, state, created_at, updated_at,
+			monthly_cost, annual_cost, contract_end_date, next_renewal_date
 		FROM computes
 		WHERE 1=1
 	`
@@ -127,7 +134,8 @@ func (r *computeRepo) List(ctx context.Context, filters storage.ComputeFilters) 
 		var tagsJSON string
 
 		err := rows.Scan(&compute.ID, &compute.Name, &compute.Type, &compute.Provider, &compute.Region,
-			&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt)
+			&tagsJSON, &compute.State, &compute.CreatedAt, &compute.UpdatedAt,
+			&compute.MonthlyCost, &compute.AnnualCost, &compute.ContractEndDate, &compute.NextRenewalDate)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan compute: %w", err)
 		}
@@ -166,10 +174,13 @@ func (r *computeRepo) Update(ctx context.Context, compute *domain.Compute) error
 
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE computes
-		SET name = ?, type = ?, provider = ?, region = ?, tags = ?, state = ?, updated_at = ?
+		SET name = ?, type = ?, provider = ?, region = ?, tags = ?, state = ?, updated_at = ?,
+			monthly_cost = ?, annual_cost = ?, contract_end_date = ?, next_renewal_date = ?
 		WHERE id = ?
 	`, compute.Name, compute.Type, compute.Provider, compute.Region,
-	   string(tagsJSON), compute.State, compute.UpdatedAt, compute.ID)
+	   string(tagsJSON), compute.State, compute.UpdatedAt,
+	   compute.MonthlyCost, compute.AnnualCost, compute.ContractEndDate, compute.NextRenewalDate,
+	   compute.ID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update compute: %w", err)

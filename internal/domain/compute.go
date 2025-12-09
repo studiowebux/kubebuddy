@@ -36,6 +36,12 @@ type Compute struct {
 	CreatedAt time.Time              `json:"created_at"`
 	UpdatedAt time.Time              `json:"updated_at"`
 
+	// Billing fields
+	MonthlyCost      *float64   `json:"monthly_cost,omitempty"`
+	AnnualCost       *float64   `json:"annual_cost,omitempty"`
+	ContractEndDate  *time.Time `json:"contract_end_date,omitempty"`
+	NextRenewalDate  *time.Time `json:"next_renewal_date,omitempty"`
+
 	// Resources is computed from components and NOT persisted to database
 	// Use GetTotalResourcesFromComponents to populate this field
 	Resources Resources              `json:"-"`
