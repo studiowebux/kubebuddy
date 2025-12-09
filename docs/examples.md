@@ -54,7 +54,9 @@ DB_SERVER=$(kubebuddy compute create \
   --type baremetal \
   --provider ovh \
   --region us-east \
-  --tags "env=prod,tier=database" | jq -r .id)
+  --tags "env=prod,tier=database" \
+  --monthly-cost 299.99 \
+  --contract-end 2026-06-30 | jq -r .id)
 
 # Assign hardware
 kubebuddy component assign --compute $DB_SERVER --component $CPU_ID --quantity 2

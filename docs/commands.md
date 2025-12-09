@@ -57,7 +57,9 @@ kubebuddy compute create \
   --type baremetal \
   --provider ovh \
   --region us-east \
-  --tags "env=prod,zone=us-east-1"
+  --tags "env=prod,zone=us-east-1" \
+  --monthly-cost 199.99 \
+  --contract-end 2026-12-31
 ```
 
 **Flags:**
@@ -67,6 +69,10 @@ kubebuddy compute create \
 - `--provider`: Provider name (required)
 - `--region`: Region (required)
 - `--tags`: Tags as key=value pairs, comma-separated
+- `--monthly-cost`: Monthly cost
+- `--annual-cost`: Annual cost
+- `--contract-end`: Contract end date (YYYY-MM-DD)
+- `--renewal-date`: Next renewal date (YYYY-MM-DD)
 
 ### update
 
@@ -75,6 +81,8 @@ Update compute.
 ```bash
 kubebuddy compute update <id> --tags "env=prod,zone=us-west"
 kubebuddy compute update <id> --state maintenance
+kubebuddy compute update <id> --monthly-cost 249.99
+kubebuddy compute update <id> --renewal-date 2026-01-15
 ```
 
 **Flags:**
@@ -85,6 +93,10 @@ kubebuddy compute update <id> --state maintenance
 - `--region`: Region
 - `--tags`: Tags as key=value pairs, comma-separated
 - `--state`: State (active, inactive, maintenance)
+- `--monthly-cost`: Monthly cost
+- `--annual-cost`: Annual cost
+- `--contract-end`: Contract end date (YYYY-MM-DD)
+- `--renewal-date`: Next renewal date (YYYY-MM-DD)
 
 ### delete
 

@@ -28,7 +28,7 @@ kubebuddy completion bash | sudo tee /etc/bash_completion.d/kubebuddy
 kubebuddy completion zsh > ~/.zsh/completions/_kubebuddy
 ```
 
-Completion includes commands, flags, compute IDs, service IDs, component IDs, and more.
+Completion includes commands, flags, compute IDs, service IDs, component IDs, regions, and more.
 
 ## Global Flags
 

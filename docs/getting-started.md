@@ -54,7 +54,8 @@ kubebuddy compute create \
   --name "server-01" \
   --type baremetal \
   --provider ovh \
-  --region us-east
+  --region us-east \
+  --monthly-cost 199.99
 ```
 
 List services:

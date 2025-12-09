@@ -17,6 +17,7 @@ Attributes:
 - **Region**: Geographic location
 - **State**: active, inactive, maintenance
 - **Tags**: Key-value metadata for placement rules
+- **Billing**: Monthly cost, annual cost, contract end date, renewal date (optional)
 
 ## Component
 
