@@ -17,6 +17,16 @@ kubebuddy server --db ~/kubebuddy.db --create-admin-key
 
 Server starts on `http://localhost:8080` (use `--port` to change).
 
+Environment variables:
+
+```bash
+export KUBEBUDDY_PORT=3000
+export KUBEBUDDY_DB=~/kubebuddy.db
+export KUBEBUDDY_CREATE_ADMIN_KEY=true
+export ADMIN_API_KEY=your-secret-key
+kubebuddy server
+```
+
 ## Configure Client
 
 Set client environment:

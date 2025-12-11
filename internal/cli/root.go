@@ -12,7 +12,7 @@ var (
 	endpoint string
 	apiKey   string
 	// Version can be set at build time using ldflags
-	Version = "0.0.3"
+	Version = "0.0.4"
 )
 
 // NewRootCmd creates the root command
@@ -20,7 +20,11 @@ func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "kubebuddy",
 		Short:   "KubeBuddy - Capacity Planning System",
-		Long:    `KubeBuddy is a capacity planning system for managing compute resources and services.`,
+		Long: `KubeBuddy is a capacity planning system for managing compute resources and services.
+
+Environment Variables:
+  KUBEBUDDY_ENDPOINT    API endpoint (default: http://localhost:8080, overridden by --endpoint)
+  KUBEBUDDY_API_KEY     API key for authentication (overridden by --api-key)`,
 		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Get from env if not set via flags

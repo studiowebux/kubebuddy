@@ -39,8 +39,37 @@ func newServerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Start API server",
-		Long:  `Start the KubeBuddy API server`,
+		Long: `Start the KubeBuddy API server
+
+Environment Variables:
+  KUBEBUDDY_DB                  Database file path (overridden by --db)
+  KUBEBUDDY_PORT                Server port (overridden by --port)
+  KUBEBUDDY_CREATE_ADMIN_KEY    Set to "true" to create admin key (overridden by --create-admin-key)
+  KUBEBUDDY_SEED                Set to "true" to seed database (overridden by --seed)
+  ADMIN_API_KEY                 Required when using --create-admin-key flag`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Load configuration from environment variables if not set via flags
+			if !cmd.Flags().Changed("db") {
+				if envDB := os.Getenv("KUBEBUDDY_DB"); envDB != "" {
+					dbPath = envDB
+				}
+			}
+			if !cmd.Flags().Changed("port") {
+				if envPort := os.Getenv("KUBEBUDDY_PORT"); envPort != "" {
+					port = envPort
+				}
+			}
+			if !cmd.Flags().Changed("create-admin-key") {
+				if envCreateAdmin := os.Getenv("KUBEBUDDY_CREATE_ADMIN_KEY"); envCreateAdmin == "true" {
+					createAdminKey = true
+				}
+			}
+			if !cmd.Flags().Changed("seed") {
+				if envSeed := os.Getenv("KUBEBUDDY_SEED"); envSeed == "true" {
+					seedData = true
+				}
+			}
+
 			// Expand ~ in database path
 			if strings.HasPrefix(dbPath, "~/") {
 				usr, err := user.Current()

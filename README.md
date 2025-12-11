@@ -44,9 +44,13 @@ ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key
 
 ### Environment Variables
 
-| Variable        | Required                        | Description         |
-| --------------- | ------------------------------- | ------------------- |
-| `ADMIN_API_KEY` | When using `--create-admin-key` | Admin API key value |
+| Variable                     | Required                        | Description                            |
+| ---------------------------- | ------------------------------- | -------------------------------------- |
+| `ADMIN_API_KEY`              | When using `--create-admin-key` | Admin API key value                    |
+| `KUBEBUDDY_PORT`             | No                              | Server port (overridden by `--port`)   |
+| `KUBEBUDDY_DB`               | No                              | Database path (overridden by `--db`)   |
+| `KUBEBUDDY_CREATE_ADMIN_KEY` | No                              | Set to `true` to create admin key      |
+| `KUBEBUDDY_SEED`             | No                              | Set to `true` to seed database on boot |
 
 ### Examples
 
@@ -60,6 +64,17 @@ Custom database location:
 
 ```bash
 ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/
+```
+
+Using environment variables:
+
+```bash
+export KUBEBUDDY_PORT=3000
+export KUBEBUDDY_DB=~/data/kubebuddy.db
+export KUBEBUDDY_CREATE_ADMIN_KEY=true
+export KUBEBUDDY_SEED=true
+export ADMIN_API_KEY=secret
+kubebuddy server
 ```
 
 ## CLI
