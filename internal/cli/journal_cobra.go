@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -73,15 +74,23 @@ func newJournalAddCmd() *cobra.Command {
 				return err
 			}
 
+			c := client.New(endpoint, apiKey)
+			ctx := context.Background()
+
+			// Resolve compute by name or ID
+			compute, err := c.ResolveCompute(ctx, computeID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve compute: %w", err)
+			}
+
 			entry := &domain.JournalEntry{
 				ID:        uuid.New().String(),
-				ComputeID: computeID,
+				ComputeID: compute.ID,
 				Category:  category,
 				Content:   content,
 			}
 
-			c := client.New(endpoint, apiKey)
-			result, err := c.CreateJournalEntry(context.Background(), entry)
+			result, err := c.CreateJournalEntry(ctx, entry)
 			if err != nil {
 				return err
 			}
@@ -91,7 +100,7 @@ func newJournalAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID (required)")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Compute name or ID (required)")
 	cmd.Flags().StringVar(&category, "category", "other", "Entry category")
 	cmd.Flags().StringVar(&content, "content", "", "Entry content (plain text or markdown, required)")
 

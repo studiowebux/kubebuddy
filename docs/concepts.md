@@ -30,12 +30,15 @@ Component types:
 - `storage`: Disks (HDD, SSD, NVMe)
 - `nic`: Network cards
 - `psu`: Power supplies
+- `os`: Operating systems
+- `other`: Miscellaneous hardware
 
 Specs are stored as JSON and vary by component type:
 - CPU: `cores`, `threads`, `ghz`
 - RAM: `capacity_gb`, `speed_mhz`
 - Storage: `capacity_gb`, `type`
 - GPU: `vram_gb`, `cuda_cores`
+- OS: `distro`, `version`, `kernel`
 
 ## Component Assignment
 
@@ -45,8 +48,11 @@ Attributes:
 - **Quantity**: Number of identical components
 - **Slot**: Physical location (e.g., CPU1, DIMM0-3)
 - **Serial Number**: For tracking individual units
-- **RAID Level**: For storage (raid0, raid1, raid5, raid6, raid10)
+- **Notes**: Installation notes (e.g., "Boot drive", "Data pool")
+- **RAID Level**: For storage - accepts numeric (0, 1, 5, 6, 10) or string format (raid0, raid1, etc.)
 - **RAID Group**: Components with same group form RAID array
+
+Multi-machine assignment: Use `--computes server1,server2,server3` to assign the same component to multiple machines in one command.
 
 ## Service
 

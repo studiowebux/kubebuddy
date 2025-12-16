@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -247,16 +248,26 @@ func newIPAssignCmd() *cobra.Command {
 				return err
 			}
 
+			c := client.New(endpoint, apiKey)
+			ctx := context.Background()
+
+			// Resolve compute by name or ID
+			compute, err := c.ResolveCompute(ctx, computeID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve compute: %w", err)
+			}
+
+			// Note: IP addresses are resolved by UUID only (no name resolution for IPs)
+
 			assignment := &domain.ComputeIP{
 				ID:        uuid.New().String(),
-				ComputeID: computeID,
+				ComputeID: compute.ID,
 				IPID:      ipID,
 				IsPrimary: isPrimary,
 				CreatedAt: time.Now(),
 			}
 
-			c := client.New(endpoint, apiKey)
-			result, err := c.AssignIP(context.Background(), assignment)
+			result, err := c.AssignIP(ctx, assignment)
 			if err != nil {
 				return err
 			}
@@ -266,7 +277,7 @@ func newIPAssignCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID (required)")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Compute name or ID (required)")
 	cmd.Flags().StringVar(&ipID, "ip", "", "IP address ID (required)")
 	cmd.Flags().BoolVar(&isPrimary, "primary", false, "Set as primary IP")
 
@@ -322,7 +333,21 @@ func newIPListAssignmentsCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			assignments, err := c.ListIPAssignments(context.Background(), computeID, ipID)
+			ctx := context.Background()
+
+			resolvedComputeID := computeID
+			// Resolve compute if provided
+			if computeID != "" {
+				compute, err := c.ResolveCompute(ctx, computeID)
+				if err != nil {
+					return fmt.Errorf("failed to resolve compute: %w", err)
+				}
+				resolvedComputeID = compute.ID
+			}
+
+			// Note: IP addresses are resolved by UUID only (no name resolution for IPs)
+
+			assignments, err := c.ListIPAssignments(ctx, resolvedComputeID, ipID)
 			if err != nil {
 				return err
 			}
@@ -332,7 +357,7 @@ func newIPListAssignmentsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute ID")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute name or ID")
 	cmd.Flags().StringVar(&ipID, "ip", "", "Filter by IP address ID")
 
 	cmd.RegisterFlagCompletionFunc("compute", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

@@ -14,6 +14,7 @@ const (
 	ComponentTypeGPU     ComponentType = "gpu"
 	ComponentTypeNIC     ComponentType = "nic"
 	ComponentTypePSU     ComponentType = "psu"
+	ComponentTypeOS      ComponentType = "os"
 	ComponentTypeOther   ComponentType = "other"
 )
 

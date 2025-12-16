@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -230,16 +231,26 @@ func newFirewallAssignCmd() *cobra.Command {
 				return err
 			}
 
+			c := client.New(endpoint, apiKey)
+			ctx := context.Background()
+
+			// Resolve compute by name or ID
+			compute, err := c.ResolveCompute(ctx, computeID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve compute: %w", err)
+			}
+
+			// Note: Firewall rules resolved by UUID only (no name resolution yet)
+
 			assignment := &domain.ComputeFirewallRule{
 				ID:        uuid.New().String(),
-				ComputeID: computeID,
+				ComputeID: compute.ID,
 				RuleID:    ruleID,
 				Enabled:   enabled,
 				CreatedAt: time.Now(),
 			}
 
-			c := client.New(endpoint, apiKey)
-			result, err := c.AssignFirewallRule(context.Background(), assignment)
+			result, err := c.AssignFirewallRule(ctx, assignment)
 			if err != nil {
 				return err
 			}
@@ -249,7 +260,7 @@ func newFirewallAssignCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID (required)")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Compute name or ID (required)")
 	cmd.Flags().StringVar(&ruleID, "rule", "", "Firewall rule ID (required)")
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "Enable rule (default: true)")
 
@@ -311,7 +322,21 @@ func newFirewallListAssignmentsCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			assignments, err := c.ListComputeFirewallRules(context.Background(), computeID, ruleID)
+			ctx := context.Background()
+
+			resolvedComputeID := computeID
+			// Resolve compute if provided
+			if computeID != "" {
+				compute, err := c.ResolveCompute(ctx, computeID)
+				if err != nil {
+					return fmt.Errorf("failed to resolve compute: %w", err)
+				}
+				resolvedComputeID = compute.ID
+			}
+
+			// Note: Firewall rules resolved by UUID only (no name resolution yet)
+
+			assignments, err := c.ListComputeFirewallRules(ctx, resolvedComputeID, ruleID)
 			if err != nil {
 				return err
 			}
@@ -321,7 +346,7 @@ func newFirewallListAssignmentsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute ID")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute name or ID")
 	cmd.Flags().StringVar(&ruleID, "rule", "", "Filter by firewall rule ID")
 
 	cmd.RegisterFlagCompletionFunc("compute", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

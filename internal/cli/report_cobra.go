@@ -28,7 +28,7 @@ func newReportComputeCmd() *cobra.Command {
 	var detailedJournal bool
 
 	cmd := &cobra.Command{
-		Use:   "compute [id]",
+		Use:   "compute [name or id]",
 		Short: "Generate markdown report for a compute",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +38,7 @@ func newReportComputeCmd() *cobra.Command {
 
 			c := client.New(endpoint, apiKey)
 
-			// If ID provided as argument, use it
+			// If ID or name provided as argument, use it
 			if len(args) > 0 {
 				computeID = args[0]
 			}
@@ -61,8 +61,15 @@ func newReportComputeCmd() *cobra.Command {
 				return nil
 			}
 
+			// Resolve compute by name or ID
+			ctx := context.Background()
+			compute, err := c.ResolveCompute(ctx, computeID)
+			if err != nil {
+				return err
+			}
+
 			// Generate report for specific compute
-			return printComputeReport(c, computeID, detailedJournal)
+			return printComputeReport(c, compute.ID, detailedJournal)
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {

@@ -41,10 +41,11 @@ kubebuddy compute list
 
 ### get
 
-Get compute by ID.
+Get compute by name or ID.
 
 ```bash
-kubebuddy compute get <id>
+kubebuddy compute get <name or id>
+kubebuddy compute get prod-server-01
 ```
 
 ### create
@@ -76,13 +77,13 @@ kubebuddy compute create \
 
 ### update
 
-Update compute.
+Update compute by name or ID.
 
 ```bash
-kubebuddy compute update <id> --tags "env=prod,zone=us-west"
-kubebuddy compute update <id> --state maintenance
-kubebuddy compute update <id> --monthly-cost 249.99
-kubebuddy compute update <id> --renewal-date 2026-01-15
+kubebuddy compute update prod-server-01 --tags "env=prod,zone=us-west"
+kubebuddy compute update prod-server-01 --state maintenance
+kubebuddy compute update prod-server-01 --monthly-cost 249.99
+kubebuddy compute update prod-server-01 --renewal-date 2026-01-15
 ```
 
 **Flags:**
@@ -121,15 +122,16 @@ kubebuddy component list --type cpu --manufacturer Intel
 
 **Flags:**
 
-- `--type`: Filter by type (cpu, ram, storage, gpu, nic, psu)
+- `--type`: Filter by type (cpu, ram, storage, gpu, nic, psu, os, other)
 - `--manufacturer`: Filter by manufacturer
 
 ### get
 
-Get component details.
+Get component by name or ID.
 
 ```bash
-kubebuddy component get <id>
+kubebuddy component get <name or id>
+kubebuddy component get "Intel Xeon E5-2680v4"
 ```
 
 ### create
@@ -157,12 +159,19 @@ kubebuddy component create \
   --manufacturer Samsung \
   --model "PM983" \
   --specs '{"capacity_gb":960,"type":"nvme"}'
+
+kubebuddy component create \
+  --name "Ubuntu 22.04 LTS" \
+  --type os \
+  --manufacturer Canonical \
+  --model "22.04" \
+  --specs '{"distro":"ubuntu","version":"22.04","kernel":"6.5"}'
 ```
 
 **Flags:**
 
 - `--name`: Component name (required)
-- `--type`: Component type (required)
+- `--type`: Component type (cpu, ram, storage, gpu, nic, psu, os, other) (required)
 - `--manufacturer`: Manufacturer (required)
 - `--model`: Model (required)
 - `--specs`: JSON specs (e.g., `{"cores":8,"ghz":3.5}`)
@@ -170,65 +179,79 @@ kubebuddy component create \
 
 ### delete
 
-Delete component.
+Delete component by name or ID.
 
 ```bash
-kubebuddy component delete <id>
+kubebuddy component delete <name or id>
 ```
 
 ### assign
 
-Assign component to compute.
+Assign component to one or more computes.
 
 ```bash
+# Single machine
 kubebuddy component assign \
-  --compute server-01 \
-  --component cpu-123 \
+  --computes server-01 \
+  --component "Intel Xeon E5-2680v4" \
   --quantity 2 \
   --slot "CPU1,CPU2"
 
-# Storage with RAID1
+# Multiple machines (same component to all)
 kubebuddy component assign \
-  --compute server-01 \
-  --component nvme-500gb \
+  --computes server-01,server-02,server-03 \
+  --component "Samsung 32GB DDR4" \
+  --quantity 8
+
+# Storage with RAID (numeric or string format)
+kubebuddy component assign \
+  --computes server-01 \
+  --component "Samsung 960GB NVMe" \
   --quantity 2 \
-  --raid raid1 \
-  --raid-group storage-group-1
+  --raid 1 \
+  --raid-group boot-array \
+  --notes "Boot drive"
+
+# OS assignment
+kubebuddy component assign \
+  --computes server-01,server-02 \
+  --component "Ubuntu 22.04 LTS" \
+  --quantity 1
 ```
 
 **Flags:**
 
-- `--compute`: Compute ID (required)
-- `--component`: Component ID (required)
+- `--computes`: Comma-separated compute names or IDs (required)
+- `--component`: Component name or ID (required)
 - `--quantity`: Quantity (default: 1)
 - `--slot`: Physical slot (e.g., CPU1, DIMM0-3)
 - `--serial`: Serial number
-- `--notes`: Notes
-- `--raid`: RAID level (raid0, raid1, raid5, raid6, raid10)
+- `--notes`: Installation notes (e.g., "Boot drive", "Data pool")
+- `--raid`: RAID level - accepts 0, 1, 5, 6, 10 or raid0, raid1, raid5, raid6, raid10
 - `--raid-group`: RAID group ID (components with same group form array)
 
 ### unassign
 
-Unassign component.
+Unassign component by assignment ID.
 
 ```bash
-kubebuddy component unassign <id>
+kubebuddy component unassign <assignment-id>
 ```
 
 ### list-assignments
 
-List component assignments.
+List component assignments with optional filters.
 
 ```bash
 kubebuddy component list-assignments
 kubebuddy component list-assignments --compute server-01
-kubebuddy component list-assignments --component cpu-123
+kubebuddy component list-assignments --component "Intel Xeon E5-2680v4"
 ```
 
 **Flags:**
 
-- `--compute`: Filter by compute ID
-- `--component`: Filter by component ID
+- `--compute`: Filter by compute name or ID
+- `--component`: Filter by component name or ID
 
 ## ip
 
@@ -595,10 +618,11 @@ kubebuddy service list
 
 ### get
 
-Get service by ID.
+Get service by name or ID.
 
 ```bash
-kubebuddy service get <id>
+kubebuddy service get <name or id>
+kubebuddy service get postgres-db
 ```
 
 ### create
@@ -628,10 +652,11 @@ kubebuddy service create \
 
 ### delete
 
-Delete service.
+Delete service by name or ID.
 
 ```bash
-kubebuddy service delete <id>
+kubebuddy service delete <name or id>
+kubebuddy service delete postgres-db
 ```
 
 ## assignment
@@ -650,8 +675,8 @@ kubebuddy assignment list --service postgres-db
 
 **Flags:**
 
-- `--compute`: Filter by compute ID
-- `--service`: Filter by service ID
+- `--compute`: Filter by compute name or ID
+- `--service`: Filter by service name or ID
 
 ### create
 
@@ -670,8 +695,8 @@ kubebuddy assignment create \
 
 **Flags:**
 
-- `--service`: Service ID (required)
-- `--compute`: Compute ID (required)
+- `--service`: Service name or ID (required)
+- `--compute`: Compute name or ID (required)
 - `--force`: Force assignment even if resources insufficient
 
 ### delete
@@ -735,7 +760,7 @@ kubebuddy journal list --compute server-01
 
 **Flags:**
 
-- `--compute`: Filter by compute ID
+- `--compute`: Filter by compute name or ID
 
 ### add
 
@@ -755,7 +780,7 @@ kubebuddy journal add \
 
 **Flags:**
 
-- `--compute`: Compute ID (required)
+- `--compute`: Compute name or ID (required)
 - `--category`: maintenance, incident, deployment, hardware, network, other (default: other)
 - `--content`: Entry content (required)
 

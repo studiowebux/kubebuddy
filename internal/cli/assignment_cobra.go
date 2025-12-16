@@ -40,10 +40,29 @@ func newAssignmentListCmd() *cobra.Command {
 			}
 
 			c := client.New(endpoint, apiKey)
-			assignments, err := c.ListAssignments(context.Background(), storage.AssignmentFilters{
-				ComputeID: computeID,
-				ServiceID: serviceID,
-			})
+			ctx := context.Background()
+
+			filters := storage.AssignmentFilters{}
+
+			// Resolve compute if provided
+			if computeID != "" {
+				compute, err := c.ResolveCompute(ctx, computeID)
+				if err != nil {
+					return fmt.Errorf("failed to resolve compute: %w", err)
+				}
+				filters.ComputeID = compute.ID
+			}
+
+			// Resolve service if provided
+			if serviceID != "" {
+				service, err := c.ResolveService(ctx, serviceID)
+				if err != nil {
+					return fmt.Errorf("failed to resolve service: %w", err)
+				}
+				filters.ServiceID = service.ID
+			}
+
+			assignments, err := c.ListAssignments(ctx, filters)
 			if err != nil {
 				return err
 			}
@@ -53,8 +72,8 @@ func newAssignmentListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute ID")
-	cmd.Flags().StringVar(&serviceID, "service", "", "Filter by service ID")
+	cmd.Flags().StringVar(&computeID, "compute", "", "Filter by compute name or ID")
+	cmd.Flags().StringVar(&serviceID, "service", "", "Filter by service name or ID")
 
 	cmd.RegisterFlagCompletionFunc("compute", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeComputeIDs(toComplete), cobra.ShellCompDirectiveNoFileComp
