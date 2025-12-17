@@ -13,7 +13,7 @@ Build infrastructure with database and web servers.
 ### Start Server
 
 ```bash
-export ADMIN_API_KEY=secure-key
+export KUBEBUDDY_ADMIN_API_KEY=secure-key
 kubebuddy server --db ~/kubebuddy.db --create-admin-key
 ```
 

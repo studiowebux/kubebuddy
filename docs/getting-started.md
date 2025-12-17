@@ -11,7 +11,7 @@ tags: [tutorial, quickstart, getting-started]
 Start server with admin API key:
 
 ```bash
-export ADMIN_API_KEY=your-secret-key
+export KUBEBUDDY_ADMIN_API_KEY=your-secret-key
 kubebuddy server --db ~/kubebuddy.db --create-admin-key
 ```
 
@@ -23,7 +23,7 @@ Environment variables:
 export KUBEBUDDY_PORT=3000
 export KUBEBUDDY_DB=~/kubebuddy.db
 export KUBEBUDDY_CREATE_ADMIN_KEY=true
-export ADMIN_API_KEY=your-secret-key
+export KUBEBUDDY_ADMIN_API_KEY=your-secret-key
 kubebuddy server
 ```
 

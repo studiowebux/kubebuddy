@@ -8,7 +8,7 @@ tags: [cli, reference, commands]
 
 ## server
 
-Start API server.
+Start API server with optional WebUI.
 
 ```bash
 kubebuddy server [flags]
@@ -18,14 +18,28 @@ kubebuddy server [flags]
 
 - `--db`: Database file path (default: ./kubebuddy.db)
 - `--port`: Server port (default: 8080)
-- `--create-admin-key`: Create admin API key from ADMIN_API_KEY env var
+- `--create-admin-key`: Create admin API key from KUBEBUDDY_ADMIN_API_KEY env var
 - `--seed`: Seed database with sample data
+- `--webui`: Enable WebUI server (requires KUBEBUDDY_ADMIN_API_KEY)
+- `--webui-port`: WebUI port (default: 8081)
 
-**Example:**
+**Examples:**
 
 ```bash
-kubebuddy server --db /data/kubebuddy.db --port 9000 --create-admin-key
+# API server only
+kubebuddy server --db ./kubebuddy.db --create-admin-key
+
+# API server + WebUI (one command)
+export KUBEBUDDY_ADMIN_API_KEY="your-secure-key"
+kubebuddy server --db ./kubebuddy.db --create-admin-key --webui
+
+# Custom ports
+kubebuddy server --port 9000 --webui --webui-port 9001
 ```
+
+When `--webui` is enabled:
+- API server: http://localhost:8080
+- WebUI: http://localhost:8081
 
 ## compute
 

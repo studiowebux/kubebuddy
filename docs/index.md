@@ -10,8 +10,9 @@ Capacity planning tool for managing compute resources and services. Server/clien
 
 ## Architecture
 
-- Server: SQLite database, REST API
+- Server: SQLite database, REST API, embedded WebUI
 - Client: CLI commands communicate via HTTP
+- WebUI: Vanilla JavaScript single-page application with light/dark themes
 - Authentication: API key with scopes (admin, readwrite, readonly)
 
 ## Shell Completion

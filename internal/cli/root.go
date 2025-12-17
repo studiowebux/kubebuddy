@@ -12,7 +12,7 @@ var (
 	endpoint string
 	apiKey   string
 	// Version can be set at build time using ldflags
-	Version = "0.0.4"
+	Version = "0.0.5"
 )
 
 // NewRootCmd creates the root command

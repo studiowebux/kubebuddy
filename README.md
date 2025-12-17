@@ -1,17 +1,24 @@
 # KubeBuddy
 
-Capacity planning system for compute resources and services with intelligent placement rules.
+Capacity planning system for compute resources and services with intelligent
+placement rules.
 
 ## Features
 
 - Compute resource management (baremetal, VPS, VM)
-- Hardware component catalog with RAID support
+- Hardware component catalog with RAID support (numeric and string formats)
 - Service definitions with resource specifications
 - Tag-based placement constraints
 - Network management (IP, DNS, ports, firewall)
 - Capacity planning and reporting
 - Per-compute journal system
 - Multi-scope API key authentication
+- Web UI with light/dark theme
+- Name resolution (use names instead of UUIDs in CLI commands)
+- Multi-machine component assignment
+- OS component type tracking
+- Resource summary with utilization percentages
+- RAID capacity calculation
 
 ## Installation
 
@@ -29,24 +36,39 @@ sudo cp kubebuddy /usr/local/bin/
 
 ### Start Server
 
+Basic:
+
 ```bash
-ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key
+KUBEBUDDY_ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key
 ```
+
+With WebUI:
+
+```bash
+KUBEBUDDY_ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key --webui
+```
+
+Access:
+
+- API server: http://localhost:8080
+- WebUI: http://localhost:8081
 
 ### Flags
 
-| Flag                 | Type   | Default        | Description                                   |
-| -------------------- | ------ | -------------- | --------------------------------------------- |
-| `--db`               | string | `kubebuddy.db` | Database file path (supports `~` expansion)   |
-| `--port`             | string | `8080`         | Server port                                   |
-| `--create-admin-key` | bool   | `false`        | Create admin API key from `ADMIN_API_KEY` env |
-| `--seed`             | bool   | `false`        | Populate with sample data                     |
+| Flag                 | Type   | Default        | Description                                             |
+| -------------------- | ------ | -------------- | ------------------------------------------------------- |
+| `--db`               | string | `kubebuddy.db` | Database file path (supports `~` expansion)             |
+| `--port`             | string | `8080`         | Server port                                             |
+| `--webui`            | bool   | `false`        | Enable WebUI server                                     |
+| `--webui-port`       | string | `8081`         | WebUI port                                              |
+| `--create-admin-key` | bool   | `false`        | Create admin API key from `KUBEBUDDY_ADMIN_API_KEY` env |
+| `--seed`             | bool   | `false`        | Populate with sample data                               |
 
 ### Environment Variables
 
 | Variable                     | Required                        | Description                            |
 | ---------------------------- | ------------------------------- | -------------------------------------- |
-| `ADMIN_API_KEY`              | When using `--create-admin-key` | Admin API key value                    |
+| `KUBEBUDDY_ADMIN_API_KEY`    | When using `--create-admin-key` | Admin API key value                    |
 | `KUBEBUDDY_PORT`             | No                              | Server port (overridden by `--port`)   |
 | `KUBEBUDDY_DB`               | No                              | Database path (overridden by `--db`)   |
 | `KUBEBUDDY_CREATE_ADMIN_KEY` | No                              | Set to `true` to create admin key      |
@@ -57,13 +79,13 @@ ADMIN_API_KEY=your-secret-key kubebuddy server --create-admin-key
 Development with sample data:
 
 ```bash
-ADMIN_API_KEY=test123 kubebuddy server --create-admin-key --seed
+KUBEBUDDY_ADMIN_API_KEY=test123 kubebuddy server --create-admin-key --seed
 ```
 
 Custom database location:
 
 ```bash
-ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/
+KUBEBUDDY_ADMIN_API_KEY=secret kubebuddy server --create-admin-key --db ~/.kubebuddy/
 ```
 
 Using environment variables:
@@ -73,7 +95,7 @@ export KUBEBUDDY_PORT=3000
 export KUBEBUDDY_DB=~/data/kubebuddy.db
 export KUBEBUDDY_CREATE_ADMIN_KEY=true
 export KUBEBUDDY_SEED=true
-export ADMIN_API_KEY=secret
+export KUBEBUDDY_ADMIN_API_KEY=secret
 kubebuddy server
 ```
 
@@ -128,9 +150,25 @@ kubebuddy assignment delete <id>
 ```bash
 kubebuddy component list
 kubebuddy component create --name "Intel Xeon" --type cpu --manufacturer Intel --model "E5-2680v4" --specs '{"cores":14,"threads":28}'
-kubebuddy component assign --compute <compute-id> --component <component-id> --quantity 2 --raid raid5 --raid-group rg1
+
+# Single machine assignment
+kubebuddy component assign --computes server-01 --component "Intel Xeon" --quantity 2 --raid raid5 --raid-group rg1
+
+# Multi-machine assignment (assign to multiple servers at once)
+kubebuddy component assign --computes server-01,server-02,server-03 --component "32GB RAM" --quantity 8
+
+# RAID supports both numeric and string formats
+kubebuddy component assign --computes server-01 --component "Samsung NVMe" --quantity 2 --raid 1 --raid-group boot
+kubebuddy component assign --computes server-01 --component "Seagate SATA" --quantity 4 --raid raid10 --raid-group data
+
+# With installation notes
+kubebuddy component assign --computes server-01 --component "Samsung NVMe" --notes "Boot drive - RAID1 mirror"
+
 kubebuddy component unassign <assignment-id>
 ```
+
+Supported component types: `cpu`, `ram`, `storage`, `gpu`, `nic`, `psu`, `os`,
+`other`
 
 #### Network Management
 
@@ -177,9 +215,26 @@ kubebuddy plan <service-id>
 #### Reports
 
 ```bash
+# Using name or ID
+kubebuddy report compute server-01
 kubebuddy report compute <compute-id>
-kubebuddy report compute  # All computes
+
+# All computes
+kubebuddy report compute
+
+# With detailed journal entries
+kubebuddy report compute server-01 --journal
 ```
+
+Reports include:
+
+- Compute information
+- Resource summary (cores, RAM, VRAM, storage with utilization %)
+- Storage configuration breakdown (RAID groups with effective capacity)
+- Hardware components with specs
+- Service assignments
+- Network configuration (IPs, DNS, firewall rules, port mappings)
+- Journal entries
 
 #### Journal
 
@@ -197,6 +252,49 @@ kubebuddy apikey delete <id>
 ```
 
 **Scopes**: `admin`, `readwrite`, `readonly`
+
+## WebUI
+
+Access the web interface at http://localhost:8081 when server is started with
+`--webui` flag.
+
+### Features
+
+- Light/dark theme with persistence
+- Full CRUD operations for all resources:
+  - Computes (create, list, delete)
+  - Components (create, list, delete)
+  - Services (create, list, delete)
+  - Assignments (list with resolved names)
+  - IPs (create, list, delete)
+  - DNS Records (create, list, delete)
+  - Firewall Rules (create, list, delete)
+  - Port Mappings (create, list, delete)
+  - Journal Entries (create, list)
+  - API Keys (create, list, delete)
+- Comprehensive Reports:
+  - Select compute from dropdown
+  - Resource summary with totals and utilization percentages
+  - Storage configuration with RAID breakdown
+  - Hardware components with specs
+  - Service assignments
+  - IP assignments (resolved addresses)
+  - Journal entries with proper date formatting
+- Name resolution (shows names instead of UUIDs)
+- Responsive tables with horizontal scrolling
+- No build step required (vanilla JavaScript)
+- Single binary deployment
+
+### Example
+
+```bash
+# Start server with WebUI
+export KUBEBUDDY_ADMIN_API_KEY="your-secret-key"
+kubebuddy server --db ./kubebuddy.db --create-admin-key --webui
+
+# Access WebUI at http://localhost:8081
+# API server at http://localhost:8080
+```
 
 ## Shell Completion
 
