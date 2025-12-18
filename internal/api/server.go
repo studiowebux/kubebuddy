@@ -43,12 +43,12 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// API v1 routes
-	v1 := s.router.Group("/api/v1")
-	v1.Use(AuthMiddleware(s.store))
+	// API routes
+	api := s.router.Group("/api")
+	api.Use(AuthMiddleware(s.store))
 
 	// Compute routes
-	computes := v1.Group("/computes")
+	computes := api.Group("/computes")
 	{
 		computes.GET("", s.listComputes)
 		computes.GET("/:id", s.getCompute)
@@ -58,7 +58,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Service routes
-	services := v1.Group("/services")
+	services := api.Group("/services")
 	{
 		services.GET("", s.listServices)
 		services.GET("/:id", s.getService)
@@ -68,7 +68,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Assignment routes
-	assignments := v1.Group("/assignments")
+	assignments := api.Group("/assignments")
 	{
 		assignments.GET("", s.listAssignments)
 		assignments.GET("/:id", s.getAssignment)
@@ -77,14 +77,20 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Capacity planning routes
-	capacity := v1.Group("/capacity")
+	capacity := api.Group("/capacity")
 	{
 		capacity.POST("/plan", s.planCapacity)
 		capacity.GET("/report", s.capacityReport)
 	}
 
+	// Report routes
+	reports := api.Group("/reports")
+	{
+		reports.GET("/compute/:id", s.getComputeReport)
+	}
+
 	// Journal routes
-	journal := v1.Group("/journal")
+	journal := api.Group("/journal")
 	{
 		journal.GET("", s.listJournalEntries)
 		journal.GET("/:id", s.getJournalEntry)
@@ -93,7 +99,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Component routes
-	components := v1.Group("/components")
+	components := api.Group("/components")
 	{
 		components.GET("", s.listComponents)
 		components.GET("/:id", s.getComponent)
@@ -103,7 +109,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Component assignment routes
-	componentAssignments := v1.Group("/component-assignments")
+	componentAssignments := api.Group("/component-assignments")
 	{
 		componentAssignments.GET("", s.listComputeComponents)
 		componentAssignments.POST("", RequireWrite(), s.assignComponent)
@@ -111,7 +117,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// IP address routes
-	ips := v1.Group("/ips")
+	ips := api.Group("/ips")
 	{
 		ips.GET("", s.listIPAddresses)
 		ips.GET("/:id", s.getIPAddress)
@@ -121,7 +127,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// IP assignment routes
-	ipAssignments := v1.Group("/ip-assignments")
+	ipAssignments := api.Group("/ip-assignments")
 	{
 		ipAssignments.GET("", s.listComputeIPs)
 		ipAssignments.POST("", RequireWrite(), s.assignIP)
@@ -129,7 +135,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// DNS record routes
-	dns := v1.Group("/dns")
+	dns := api.Group("/dns")
 	{
 		dns.GET("", s.listDNSRecords)
 		dns.GET("/:id", s.getDNSRecord)
@@ -139,7 +145,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Port assignment routes
-	ports := v1.Group("/ports")
+	ports := api.Group("/ports")
 	{
 		ports.GET("", s.listPortAssignments)
 		ports.GET("/:id", s.getPortAssignment)
@@ -149,7 +155,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Firewall rule routes
-	firewallRules := v1.Group("/firewall-rules")
+	firewallRules := api.Group("/firewall-rules")
 	{
 		firewallRules.GET("", s.listFirewallRules)
 		firewallRules.GET("/:id", s.getFirewallRule)
@@ -159,7 +165,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Firewall rule assignment routes
-	firewallAssignments := v1.Group("/firewall-assignments")
+	firewallAssignments := api.Group("/firewall-assignments")
 	{
 		firewallAssignments.GET("", s.listComputeFirewallRules)
 		firewallAssignments.POST("", RequireWrite(), s.assignFirewallRule)
@@ -168,7 +174,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Admin routes (API key management)
-	admin := v1.Group("/admin")
+	admin := api.Group("/admin")
 	admin.Use(RequireAdmin())
 	{
 		admin.GET("/apikeys", s.listAPIKeys)

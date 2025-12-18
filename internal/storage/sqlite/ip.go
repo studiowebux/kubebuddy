@@ -22,8 +22,8 @@ func (r *ipAddressRepo) Create(ctx context.Context, ip *domain.IPAddress) error 
 	}
 
 	query := `
-		INSERT INTO ip_addresses (id, address, type, cidr, gateway, dns_servers, provider, region, notes, state, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO ip_addresses (id, address, type, cidr, gateway, dns_servers, provider, region, vlan, notes, state, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err = r.db.ExecContext(ctx, query,
@@ -35,6 +35,7 @@ func (r *ipAddressRepo) Create(ctx context.Context, ip *domain.IPAddress) error 
 		dnsJSON,
 		ip.Provider,
 		ip.Region,
+		ip.VLAN,
 		ip.Notes,
 		ip.State,
 		ip.CreatedAt,
@@ -50,7 +51,7 @@ func (r *ipAddressRepo) Create(ctx context.Context, ip *domain.IPAddress) error 
 
 func (r *ipAddressRepo) Get(ctx context.Context, id string) (*domain.IPAddress, error) {
 	query := `
-		SELECT id, address, type, cidr, gateway, dns_servers, provider, region, notes, state, created_at, updated_at
+		SELECT id, address, type, cidr, gateway, dns_servers, provider, region, COALESCE(vlan, ''), notes, state, created_at, updated_at
 		FROM ip_addresses
 		WHERE id = ?
 	`
@@ -67,6 +68,7 @@ func (r *ipAddressRepo) Get(ctx context.Context, id string) (*domain.IPAddress, 
 		&dnsJSON,
 		&ip.Provider,
 		&ip.Region,
+		&ip.VLAN,
 		&ip.Notes,
 		&ip.State,
 		&ip.CreatedAt,
@@ -89,7 +91,7 @@ func (r *ipAddressRepo) Get(ctx context.Context, id string) (*domain.IPAddress, 
 
 func (r *ipAddressRepo) GetByAddress(ctx context.Context, address string) (*domain.IPAddress, error) {
 	query := `
-		SELECT id, address, type, cidr, gateway, dns_servers, provider, region, notes, state, created_at, updated_at
+		SELECT id, address, type, cidr, gateway, dns_servers, provider, region, COALESCE(vlan, ''), notes, state, created_at, updated_at
 		FROM ip_addresses
 		WHERE address = ?
 	`
@@ -106,6 +108,7 @@ func (r *ipAddressRepo) GetByAddress(ctx context.Context, address string) (*doma
 		&dnsJSON,
 		&ip.Provider,
 		&ip.Region,
+		&ip.VLAN,
 		&ip.Notes,
 		&ip.State,
 		&ip.CreatedAt,
@@ -127,7 +130,7 @@ func (r *ipAddressRepo) GetByAddress(ctx context.Context, address string) (*doma
 }
 
 func (r *ipAddressRepo) List(ctx context.Context, filters storage.IPAddressFilters) ([]*domain.IPAddress, error) {
-	query := "SELECT id, address, type, cidr, gateway, dns_servers, provider, region, notes, state, created_at, updated_at FROM ip_addresses WHERE 1=1"
+	query := "SELECT id, address, type, cidr, gateway, dns_servers, provider, region, COALESCE(vlan, ''), notes, state, created_at, updated_at FROM ip_addresses WHERE 1=1"
 	args := []interface{}{}
 
 	if filters.Type != "" {
@@ -172,6 +175,7 @@ func (r *ipAddressRepo) List(ctx context.Context, filters storage.IPAddressFilte
 			&dnsJSON,
 			&ip.Provider,
 			&ip.Region,
+			&ip.VLAN,
 			&ip.Notes,
 			&ip.State,
 			&ip.CreatedAt,
@@ -199,7 +203,7 @@ func (r *ipAddressRepo) Update(ctx context.Context, ip *domain.IPAddress) error 
 
 	query := `
 		UPDATE ip_addresses
-		SET address = ?, type = ?, cidr = ?, gateway = ?, dns_servers = ?, provider = ?, region = ?, notes = ?, state = ?, updated_at = ?
+		SET address = ?, type = ?, cidr = ?, gateway = ?, dns_servers = ?, provider = ?, region = ?, vlan = ?, notes = ?, state = ?, updated_at = ?
 		WHERE id = ?
 	`
 
@@ -211,6 +215,7 @@ func (r *ipAddressRepo) Update(ctx context.Context, ip *domain.IPAddress) error 
 		dnsJSON,
 		ip.Provider,
 		ip.Region,
+		ip.VLAN,
 		ip.Notes,
 		ip.State,
 		ip.UpdatedAt,
@@ -259,8 +264,8 @@ type computeIPRepo struct {
 
 func (r *computeIPRepo) Assign(ctx context.Context, assignment *domain.ComputeIP) error {
 	query := `
-		INSERT INTO compute_ips (id, compute_id, ip_id, is_primary, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO compute_ips (id, compute_id, ip_id, interface_name, is_primary, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	isPrimary := 0
@@ -272,6 +277,7 @@ func (r *computeIPRepo) Assign(ctx context.Context, assignment *domain.ComputeIP
 		assignment.ID,
 		assignment.ComputeID,
 		assignment.IPID,
+		assignment.InterfaceName,
 		isPrimary,
 		assignment.CreatedAt,
 		assignment.UpdatedAt,
@@ -317,7 +323,7 @@ func (r *computeIPRepo) UnassignByIP(ctx context.Context, ipID string) error {
 
 func (r *computeIPRepo) ListByCompute(ctx context.Context, computeID string) ([]*domain.ComputeIP, error) {
 	query := `
-		SELECT id, compute_id, ip_id, is_primary, created_at, updated_at
+		SELECT id, compute_id, ip_id, COALESCE(interface_name, ''), is_primary, created_at, updated_at
 		FROM compute_ips
 		WHERE compute_id = ?
 		ORDER BY is_primary DESC, created_at
@@ -338,6 +344,7 @@ func (r *computeIPRepo) ListByCompute(ctx context.Context, computeID string) ([]
 			&assignment.ID,
 			&assignment.ComputeID,
 			&assignment.IPID,
+			&assignment.InterfaceName,
 			&isPrimary,
 			&assignment.CreatedAt,
 			&assignment.UpdatedAt,
@@ -356,7 +363,7 @@ func (r *computeIPRepo) ListByCompute(ctx context.Context, computeID string) ([]
 
 func (r *computeIPRepo) ListByIP(ctx context.Context, ipID string) ([]*domain.ComputeIP, error) {
 	query := `
-		SELECT id, compute_id, ip_id, is_primary, created_at, updated_at
+		SELECT id, compute_id, ip_id, COALESCE(interface_name, ''), is_primary, created_at, updated_at
 		FROM compute_ips
 		WHERE ip_id = ?
 		ORDER BY created_at
@@ -377,6 +384,46 @@ func (r *computeIPRepo) ListByIP(ctx context.Context, ipID string) ([]*domain.Co
 			&assignment.ID,
 			&assignment.ComputeID,
 			&assignment.IPID,
+			&assignment.InterfaceName,
+			&isPrimary,
+			&assignment.CreatedAt,
+			&assignment.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan compute IP: %w", err)
+		}
+
+		assignment.IsPrimary = isPrimary == 1
+
+		assignments = append(assignments, &assignment)
+	}
+
+	return assignments, nil
+}
+
+func (r *computeIPRepo) List(ctx context.Context) ([]*domain.ComputeIP, error) {
+	query := `
+		SELECT id, compute_id, ip_id, COALESCE(interface_name, ''), is_primary, created_at, updated_at
+		FROM compute_ips
+		ORDER BY created_at
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all compute IPs: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*domain.ComputeIP
+	for rows.Next() {
+		var assignment domain.ComputeIP
+		var isPrimary int
+
+		err := rows.Scan(
+			&assignment.ID,
+			&assignment.ComputeID,
+			&assignment.IPID,
+			&assignment.InterfaceName,
 			&isPrimary,
 			&assignment.CreatedAt,
 			&assignment.UpdatedAt,

@@ -437,4 +437,54 @@ var migrations = map[int]string{
 		ALTER TABLE computes ADD COLUMN contract_end_date TIMESTAMP;
 		ALTER TABLE computes ADD COLUMN next_renewal_date TIMESTAMP;
 	`,
+	14: `
+		-- Remove allocated field from assignments
+		-- SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
+		CREATE TABLE assignments_new (
+			id TEXT PRIMARY KEY,
+			service_id TEXT NOT NULL,
+			compute_id TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+			FOREIGN KEY (compute_id) REFERENCES computes(id) ON DELETE CASCADE
+		);
+
+		INSERT INTO assignments_new (id, service_id, compute_id, created_at, updated_at)
+		SELECT id, service_id, compute_id, created_at, updated_at FROM assignments;
+
+		DROP TABLE assignments;
+		ALTER TABLE assignments_new RENAME TO assignments;
+
+		CREATE INDEX idx_assignments_service ON assignments(service_id);
+		CREATE INDEX idx_assignments_compute ON assignments(compute_id);
+	`,
+	15: `
+		-- Add quantity and notes fields to assignments
+		CREATE TABLE assignments_new (
+			id TEXT PRIMARY KEY,
+			service_id TEXT NOT NULL,
+			compute_id TEXT NOT NULL,
+			quantity INTEGER NOT NULL DEFAULT 1,
+			notes TEXT,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+			FOREIGN KEY (compute_id) REFERENCES computes(id) ON DELETE CASCADE
+		);
+
+		INSERT INTO assignments_new (id, service_id, compute_id, quantity, notes, created_at, updated_at)
+		SELECT id, service_id, compute_id, 1, '', created_at, updated_at FROM assignments;
+
+		DROP TABLE assignments;
+		ALTER TABLE assignments_new RENAME TO assignments;
+
+		CREATE INDEX idx_assignments_service ON assignments(service_id);
+		CREATE INDEX idx_assignments_compute ON assignments(compute_id);
+	`,
+	16: `
+		-- Add VLAN and interface_name fields
+		ALTER TABLE ip_addresses ADD COLUMN vlan TEXT;
+		ALTER TABLE compute_ips ADD COLUMN interface_name TEXT;
+	`,
 }

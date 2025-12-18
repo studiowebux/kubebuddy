@@ -17,15 +17,15 @@ type Service struct {
 // PlacementRules defines constraints for service placement
 type PlacementRules struct {
 	Affinity     []TagSelector `json:"affinity,omitempty"`
-	AntiAffinity []TagSelector `json:"anti_affinity,omitempty"`
-	SpreadMax    int           `json:"spread_max,omitempty"` // Max instances per compute (0 = unlimited)
-	TopologyKey  string        `json:"topology_key,omitempty"` // Tag key to spread across
+	AntiAffinity []TagSelector `json:"antiAffinity,omitempty"`
+	SpreadMax    int           `json:"spreadMax,omitempty"` // Max instances per compute (0 = unlimited)
+	TopologyKey  string        `json:"topologyKey,omitempty"` // Tag key to spread across
 }
 
 // TagSelector matches compute tags
 type TagSelector struct {
-	MatchLabels      map[string]string `json:"match_labels,omitempty"`
-	MatchExpressions []Expression      `json:"match_expressions,omitempty"`
+	MatchLabels      map[string]string `json:"matchLabels,omitempty"`
+	MatchExpressions []Expression      `json:"matchExpressions,omitempty"`
 }
 
 // Expression represents a tag matching expression

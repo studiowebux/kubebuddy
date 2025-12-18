@@ -113,8 +113,9 @@ func (c *Compute) GetTotalResourcesFromComponents(components []*Component, assig
 			storageValue := getSpecFloat(component.Specs, "size", "capacity_gb", "storage_gb", "capacity")
 			if storageValue > 0 {
 				sa := &storageAssignment{
-					size:     storageValue,
-					quantity: quantity,
+					size:        storageValue,
+					quantity:    quantity,
+					storageType: string(component.Type), // Track storage type
 				}
 
 				// Group by RAID configuration
@@ -156,31 +157,39 @@ func (c *Compute) GetTotalResourcesFromComponents(components []*Component, assig
 		}
 	}
 
-	// Calculate total storage with RAID support
-	totalStorage := 0.0
+	// Calculate storage by type with RAID support
+	storageByType := make(map[string]float64)
 
 	// Calculate RAID arrays
 	for _, group := range raidGroups {
 		capacity := calculateRaidCapacity(group)
-		totalStorage += capacity
+		// Use storage type from first assignment in group (all should be same type in RAID)
+		if len(group) > 0 {
+			storageType := group[0].storageType
+			storageByType[storageType] += capacity
+		}
 	}
 
 	// Add non-RAID storage
 	for _, sa := range nonRaidStorage {
-		totalStorage += sa.size * float64(sa.quantity)
+		storageByType[sa.storageType] += sa.size * float64(sa.quantity)
 	}
 
-	if totalStorage > 0 {
-		resources["nvme"] = int(totalStorage)
+	// Add to resources by type
+	for storageType, capacity := range storageByType {
+		if capacity > 0 {
+			resources[storageType] = int(capacity)
+		}
 	}
 
 	return resources
 }
 
 type storageAssignment struct {
-	size      float64
-	quantity  int
-	raidLevel RaidLevel
+	size        float64
+	quantity    int
+	raidLevel   RaidLevel
+	storageType string
 }
 
 func calculateRaidCapacity(assignments []*storageAssignment) float64 {

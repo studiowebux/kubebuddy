@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -344,11 +345,25 @@ func completeComputeIDs(toComplete string) []string {
 		return nil
 	}
 
-	var completions []string
+	// Handle comma-separated values - only suggest computes not already selected
+	prefix := ""
+	lastCommaIdx := strings.LastIndex(toComplete, ",")
+	alreadySelected := make(map[string]bool)
 
+	if lastCommaIdx >= 0 {
+		// Extract already selected computes
+		prefix = toComplete[:lastCommaIdx+1]
+		for _, name := range strings.Split(toComplete[:lastCommaIdx], ",") {
+			alreadySelected[strings.TrimSpace(name)] = true
+		}
+	}
+
+	var completions []string
 	for _, compute := range computes {
-		// Only add names for autocomplete - no description to avoid grouping issues
-		completions = append(completions, compute.Name)
+		// Skip already selected computes
+		if !alreadySelected[compute.Name] {
+			completions = append(completions, prefix+compute.Name)
+		}
 	}
 
 	// Sort alphabetically by name

@@ -101,8 +101,14 @@ func (cp *CapacityPlanner) Plan(request PlanRequest) (*PlanResult, error) {
 			continue
 		}
 
+		// Build services map for resource calculation
+		servicesMap := make(map[string]*Service)
+		for _, svc := range cp.services {
+			servicesMap[svc.ID] = svc
+		}
+
 		// Calculate available resources
-		allocated := compute.GetAllocatedResources(cp.assignments)
+		allocated := compute.GetAllocatedResources(cp.assignments, servicesMap)
 		available := compute.GetAvailableResources(allocated)
 
 		// Check if service min spec fits

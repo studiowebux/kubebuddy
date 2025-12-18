@@ -90,6 +90,17 @@ func (s *Server) createAssignment(c *gin.Context) {
 		return
 	}
 
+	// Get all services to calculate allocated resources
+	allServices, err := s.store.Services().List(c.Request.Context())
+	if err != nil {
+		handleError(c, http.StatusInternalServerError, "failed to load services", err)
+		return
+	}
+	servicesMap := make(map[string]*domain.Service)
+	for _, svc := range allServices {
+		servicesMap[svc.ID] = svc
+	}
+
 	if !force {
 		// Check placement rules
 		if !service.CanPlaceOn(compute, allAssignments) {
@@ -109,22 +120,30 @@ func (s *Server) createAssignment(c *gin.Context) {
 		}
 
 		// Check if resources are available
-		allocated := compute.GetAllocatedResources(assignmentsForCapacity)
+		allocated := compute.GetAllocatedResources(assignmentsForCapacity, servicesMap)
 		available := compute.GetAvailableResources(allocated)
 
-		// Use service max spec if allocated not specified (to prevent oversubscription)
-		if assignment.Allocated == nil {
-			assignment.Allocated = service.MaxSpec
+		// Use service max spec for capacity planning, multiplied by requested quantity
+		quantity := assignment.Quantity
+		if quantity == 0 {
+			quantity = 1
 		}
 
-		if !domain.CanFitResources(assignment.Allocated, available) {
+		requiredResources := make(domain.Resources)
+		for key, value := range service.MaxSpec {
+			switch v := value.(type) {
+			case int:
+				requiredResources[key] = v * quantity
+			case float64:
+				requiredResources[key] = v * float64(quantity)
+			default:
+				requiredResources[key] = value
+			}
+		}
+
+		if !domain.CanFitResources(requiredResources, available) {
 			handleError(c, http.StatusBadRequest, "insufficient resources available", nil)
 			return
-		}
-	} else {
-		// Force mode: still set allocated to max spec if not provided
-		if assignment.Allocated == nil {
-			assignment.Allocated = service.MaxSpec
 		}
 	}
 

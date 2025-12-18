@@ -190,10 +190,7 @@ func (s *SQLiteStorage) Seed(ctx context.Context) error {
 		ID:        uuid.New().String(),
 		ServiceID: services[0].ID, // nginx-ingress
 		ComputeID: computes[0].ID, // baremetal-prod-01
-		Allocated: domain.Resources{
-			"cpu":    2,
-			"ram_gb": 4,
-		},
+		// Note: Allocated resources calculated from service MaxSpec
 	}
 
 	if err := s.Assignments().Create(ctx, assignment); err != nil {

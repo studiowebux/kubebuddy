@@ -48,26 +48,46 @@ type Compute struct {
 }
 
 // GetAllocatedResources calculates total allocated resources from assignments
-func (c *Compute) GetAllocatedResources(assignments []*Assignment) Resources {
+// Uses service MaxSpec for each assignment, multiplied by assignment quantity
+func (c *Compute) GetAllocatedResources(assignments []*Assignment, services map[string]*Service) Resources {
 	allocated := make(Resources)
 
 	for _, assignment := range assignments {
 		if assignment.ComputeID == c.ID {
-			for key, value := range assignment.Allocated {
+			// Look up service to get MaxSpec
+			service, ok := services[assignment.ServiceID]
+			if !ok {
+				continue // Skip if service not found
+			}
+
+			quantity := assignment.Quantity
+			if quantity == 0 {
+				quantity = 1
+			}
+
+			// Add MaxSpec resources to allocated, multiplied by quantity
+			for key, value := range service.MaxSpec {
 				if existing, ok := allocated[key]; ok {
 					// Sum numeric values
 					switch v := value.(type) {
 					case int:
 						if e, ok := existing.(int); ok {
-							allocated[key] = e + v
+							allocated[key] = e + (v * quantity)
 						}
 					case float64:
 						if e, ok := existing.(float64); ok {
-							allocated[key] = e + v
+							allocated[key] = e + (v * float64(quantity))
 						}
 					}
 				} else {
-					allocated[key] = value
+					switch v := value.(type) {
+					case int:
+						allocated[key] = v * quantity
+					case float64:
+						allocated[key] = v * float64(quantity)
+					default:
+						allocated[key] = value
+					}
 				}
 			}
 		}

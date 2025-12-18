@@ -124,8 +124,14 @@ func newPlanCmd() *cobra.Command {
 					var allocatedStorageGB float64
 
 					if err == nil {
+						// For each assignment, fetch service and use MaxSpec
 						for _, assignment := range assignments {
-							if cores, ok := assignment.Allocated["cores"]; ok {
+							svc, err := c.GetService(ctx, assignment.ServiceID)
+							if err != nil {
+								continue // Skip if service not found
+							}
+
+							if cores, ok := svc.MaxSpec["cores"]; ok {
 								switch v := cores.(type) {
 								case int:
 									allocatedCores += v
@@ -133,7 +139,7 @@ func newPlanCmd() *cobra.Command {
 									allocatedCores += int(v)
 								}
 							}
-							if mem, ok := assignment.Allocated["memory"]; ok {
+							if mem, ok := svc.MaxSpec["memory"]; ok {
 								switch v := mem.(type) {
 								case int:
 									allocatedMemoryMB += float64(v)
@@ -141,7 +147,7 @@ func newPlanCmd() *cobra.Command {
 									allocatedMemoryMB += v
 								}
 							}
-							if vram, ok := assignment.Allocated["vram"]; ok {
+							if vram, ok := svc.MaxSpec["vram"]; ok {
 								switch v := vram.(type) {
 								case int:
 									allocatedVRAMMB += float64(v)
@@ -149,7 +155,7 @@ func newPlanCmd() *cobra.Command {
 									allocatedVRAMMB += v
 								}
 							}
-							if nvme, ok := assignment.Allocated["nvme"]; ok {
+							if nvme, ok := svc.MaxSpec["nvme"]; ok {
 								switch v := nvme.(type) {
 								case int:
 									allocatedStorageGB += float64(v)
@@ -244,8 +250,14 @@ func newPlanCmd() *cobra.Command {
 						var allocatedStorageGB float64
 
 						if err == nil {
+							// For each assignment, fetch service and use MaxSpec
 							for _, assignment := range assignments {
-								if cores, ok := assignment.Allocated["cores"]; ok {
+								svc, err := c.GetService(ctx, assignment.ServiceID)
+								if err != nil {
+									continue // Skip if service not found
+								}
+
+								if cores, ok := svc.MaxSpec["cores"]; ok {
 									switch v := cores.(type) {
 									case int:
 										allocatedCores += v
@@ -253,7 +265,7 @@ func newPlanCmd() *cobra.Command {
 										allocatedCores += int(v)
 									}
 								}
-								if mem, ok := assignment.Allocated["memory"]; ok {
+								if mem, ok := svc.MaxSpec["memory"]; ok {
 									switch v := mem.(type) {
 									case int:
 										allocatedMemoryMB += float64(v)
@@ -261,7 +273,7 @@ func newPlanCmd() *cobra.Command {
 										allocatedMemoryMB += v
 									}
 								}
-								if vram, ok := assignment.Allocated["vram"]; ok {
+								if vram, ok := svc.MaxSpec["vram"]; ok {
 									switch v := vram.(type) {
 									case int:
 										allocatedVRAMMB += float64(v)
@@ -269,7 +281,7 @@ func newPlanCmd() *cobra.Command {
 										allocatedVRAMMB += v
 									}
 								}
-								if nvme, ok := assignment.Allocated["nvme"]; ok {
+								if nvme, ok := svc.MaxSpec["nvme"]; ok {
 									switch v := nvme.(type) {
 									case int:
 										allocatedStorageGB += float64(v)
@@ -335,7 +347,6 @@ func newPlanCmd() *cobra.Command {
 					assignment := &domain.Assignment{
 						ServiceID: service.ID,
 						ComputeID: targetCompute.ID,
-						Allocated: service.MaxSpec,
 					}
 
 					created, err := c.CreateAssignment(ctx, assignment, false)
@@ -350,7 +361,6 @@ func newPlanCmd() *cobra.Command {
 					assignment := &domain.Assignment{
 						ServiceID: service.ID,
 						ComputeID: resolvedComputeID,
-						Allocated: service.MaxSpec,
 					}
 
 					created, err := c.CreateAssignment(ctx, assignment, true)

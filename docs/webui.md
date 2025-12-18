@@ -123,11 +123,14 @@ kubebuddy server --db /data/kubebuddy.db --create-admin-key --seed --webui
 - Select compute from dropdown
 - View comprehensive compute report including:
   - Compute information (name, type, provider, region, state, tags)
-  - Resource Summary with totals and utilization percentages:
+  - Resource Summary - Total showing allocated resources with percentages:
     - Total Cores (with % allocated)
     - Total Memory GB (with % allocated)
     - Total VRAM GB (with % allocated)
     - Total Storage GB (with % allocated)
+  - Resource Summary - Statistics showing Min/Max/Avg/Median:
+    - Each resource type shows absolute values and percentages
+    - Percentages calculated against total available resources
   - Storage Configuration breakdown:
     - RAID groups with effective capacity calculation
     - Components per RAID group
@@ -136,6 +139,32 @@ kubebuddy server --db /data/kubebuddy.db --create-admin-key --seed --webui
   - Service assignments with allocated resources
   - IP address assignments (resolved to actual addresses)
   - Journal entries (sorted by date with proper timestamp formatting)
+
+### Capacity Summary
+- View system-wide capacity report
+- Overview showing:
+  - Total computes in system
+  - Active computes count
+  - Total services defined
+  - Total assignments
+- Compute Resources table displaying:
+  - Compute name
+  - Allocated resources (formatted: cores, RAM, VRAM, NVMe, SATA)
+  - Available resources (formatted)
+  - Statistics per compute:
+    - Min: Sum of all minimum specifications
+    - Max: Sum of all maximum specifications
+    - Avg: Average of maximum specifications
+    - Median: Median of maximum specifications
+
+### IP Assignments
+- View all IP assignments across system
+- Displays:
+  - Compute name (resolved from ID)
+  - IP address (resolved from ID)
+  - Interface name
+  - Primary IP indicator
+  - Creation timestamp
 
 ## Architecture
 
@@ -199,14 +228,13 @@ CORS is enabled for development to allow API calls:
 ## Limitations
 
 Current implementation provides comprehensive CRUD operations. Advanced features not yet implemented:
-- Component assignment UI
-- IP/Firewall assignment to computes
-- Planning interface
+- Planning interface in WebUI (use CLI for capacity planning)
 - Real-time updates
 - User authentication (uses API key from CLI)
-- Filtering and search
+- Advanced filtering and search
 - Pagination for large datasets
 - Bulk operations
+- Edit functionality for most resources (create/delete only)
 
 ## Security
 

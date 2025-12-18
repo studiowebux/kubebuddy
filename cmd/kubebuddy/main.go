@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -199,7 +200,7 @@ func startWebUI(port, apiEndpoint, apiKey string) *http.Server {
 
 	// API routes
 	c := client.New(apiEndpoint, apiKey)
-	setupAPIRoutes(mux, c)
+	setupAPIRoutes(mux, c, apiEndpoint, apiKey)
 
 	server := &http.Server{
 		Addr:         ":" + port,
@@ -234,7 +235,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 // setupAPIRoutes configures all API endpoints
-func setupAPIRoutes(mux *http.ServeMux, c *client.Client) {
+func setupAPIRoutes(mux *http.ServeMux, c *client.Client, apiEndpoint, apiKey string) {
 	ctx := context.Background()
 
 	// Computes
@@ -699,6 +700,54 @@ func setupAPIRoutes(mux *http.ServeMux, c *client.Client) {
 			}
 
 			respondJSON(w, report)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Capacity report
+	mux.HandleFunc("/api/capacity/report", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			// Make direct request to backend
+			req, err := http.NewRequest("GET", apiEndpoint+"/api/capacity/report", nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			req.Header.Set("X-API-Key", apiKey)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				http.Error(w, fmt.Sprintf("Backend returned %d", resp.StatusCode), resp.StatusCode)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			io.Copy(w, resp.Body)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// IP assignments
+	mux.HandleFunc("/api/ip-assignments", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			computeID := r.URL.Query().Get("compute_id")
+			ipID := r.URL.Query().Get("ip_id")
+			assignments, err := c.ListIPAssignments(ctx, computeID, ipID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			respondJSON(w, assignments)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

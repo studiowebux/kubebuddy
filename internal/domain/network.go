@@ -32,6 +32,7 @@ type IPAddress struct {
 	DNSServers []string  `json:"dns_servers,omitempty"`
 	Provider   string    `json:"provider"`
 	Region     string    `json:"region"`
+	VLAN       string    `json:"vlan,omitempty"`
 	Notes      string    `json:"notes,omitempty"`
 	State      IPState   `json:"state"`
 	CreatedAt  time.Time `json:"created_at"`
@@ -40,12 +41,13 @@ type IPAddress struct {
 
 // ComputeIP represents an IP assignment to a compute
 type ComputeIP struct {
-	ID        string    `json:"id"`
-	ComputeID string    `json:"compute_id"`
-	IPID      string    `json:"ip_id"`
-	IsPrimary bool      `json:"is_primary"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	ComputeID     string    `json:"compute_id"`
+	IPID          string    `json:"ip_id"`
+	InterfaceName string    `json:"interface_name,omitempty"`
+	IsPrimary     bool      `json:"is_primary"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // DNSRecordType represents DNS record types

@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,20 +15,19 @@ type assignmentRepo struct {
 }
 
 func (r *assignmentRepo) Create(ctx context.Context, assignment *domain.Assignment) error {
-	allocatedJSON, err := json.Marshal(assignment.Allocated)
-	if err != nil {
-		return fmt.Errorf("failed to marshal allocated: %w", err)
-	}
-
 	now := time.Now()
 	assignment.CreatedAt = now
 	assignment.UpdatedAt = now
 
-	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO assignments (id, service_id, compute_id, allocated, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, assignment.ID, assignment.ServiceID, assignment.ComputeID,
-	   string(allocatedJSON), assignment.CreatedAt, assignment.UpdatedAt)
+	if assignment.Quantity == 0 {
+		assignment.Quantity = 1
+	}
+
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO assignments (id, service_id, compute_id, quantity, notes, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, assignment.ID, assignment.ServiceID, assignment.ComputeID, assignment.Quantity, assignment.Notes,
+	   assignment.CreatedAt, assignment.UpdatedAt)
 
 	if err != nil {
 		return fmt.Errorf("failed to create assignment: %w", err)
@@ -40,14 +38,13 @@ func (r *assignmentRepo) Create(ctx context.Context, assignment *domain.Assignme
 
 func (r *assignmentRepo) Get(ctx context.Context, id string) (*domain.Assignment, error) {
 	var assignment domain.Assignment
-	var allocatedJSON string
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, service_id, compute_id, allocated, created_at, updated_at
+		SELECT id, service_id, compute_id, quantity, notes, created_at, updated_at
 		FROM assignments
 		WHERE id = ?
-	`, id).Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID,
-		&allocatedJSON, &assignment.CreatedAt, &assignment.UpdatedAt)
+	`, id).Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID, &assignment.Quantity, &assignment.Notes,
+		&assignment.CreatedAt, &assignment.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("assignment not found")
@@ -56,23 +53,18 @@ func (r *assignmentRepo) Get(ctx context.Context, id string) (*domain.Assignment
 		return nil, fmt.Errorf("failed to get assignment: %w", err)
 	}
 
-	if err := json.Unmarshal([]byte(allocatedJSON), &assignment.Allocated); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal allocated: %w", err)
-	}
-
 	return &assignment, nil
 }
 
 func (r *assignmentRepo) GetByComputeAndService(ctx context.Context, computeID, serviceID string) (*domain.Assignment, error) {
 	var assignment domain.Assignment
-	var allocatedJSON string
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, service_id, compute_id, allocated, created_at, updated_at
+		SELECT id, service_id, compute_id, quantity, notes, created_at, updated_at
 		FROM assignments
 		WHERE compute_id = ? AND service_id = ?
-	`, computeID, serviceID).Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID,
-		&allocatedJSON, &assignment.CreatedAt, &assignment.UpdatedAt)
+	`, computeID, serviceID).Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID, &assignment.Quantity, &assignment.Notes,
+		&assignment.CreatedAt, &assignment.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil // Return nil for upsert logic
@@ -81,16 +73,12 @@ func (r *assignmentRepo) GetByComputeAndService(ctx context.Context, computeID, 
 		return nil, fmt.Errorf("failed to get assignment: %w", err)
 	}
 
-	if err := json.Unmarshal([]byte(allocatedJSON), &assignment.Allocated); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal allocated: %w", err)
-	}
-
 	return &assignment, nil
 }
 
 func (r *assignmentRepo) List(ctx context.Context, filters storage.AssignmentFilters) ([]*domain.Assignment, error) {
 	query := `
-		SELECT id, service_id, compute_id, allocated, created_at, updated_at
+		SELECT id, service_id, compute_id, quantity, notes, created_at, updated_at
 		FROM assignments
 		WHERE 1=1
 	`
@@ -116,16 +104,11 @@ func (r *assignmentRepo) List(ctx context.Context, filters storage.AssignmentFil
 	assignments := make([]*domain.Assignment, 0)
 	for rows.Next() {
 		var assignment domain.Assignment
-		var allocatedJSON string
 
-		err := rows.Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID,
-			&allocatedJSON, &assignment.CreatedAt, &assignment.UpdatedAt)
+		err := rows.Scan(&assignment.ID, &assignment.ServiceID, &assignment.ComputeID, &assignment.Quantity, &assignment.Notes,
+			&assignment.CreatedAt, &assignment.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan assignment: %w", err)
-		}
-
-		if err := json.Unmarshal([]byte(allocatedJSON), &assignment.Allocated); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal allocated: %w", err)
 		}
 
 		assignments = append(assignments, &assignment)
@@ -135,18 +118,17 @@ func (r *assignmentRepo) List(ctx context.Context, filters storage.AssignmentFil
 }
 
 func (r *assignmentRepo) Update(ctx context.Context, assignment *domain.Assignment) error {
-	allocatedJSON, err := json.Marshal(assignment.Allocated)
-	if err != nil {
-		return fmt.Errorf("failed to marshal allocated: %w", err)
-	}
-
 	assignment.UpdatedAt = time.Now()
 
-	_, err = r.db.ExecContext(ctx, `
+	if assignment.Quantity == 0 {
+		assignment.Quantity = 1
+	}
+
+	_, err := r.db.ExecContext(ctx, `
 		UPDATE assignments
-		SET allocated = ?, updated_at = ?
+		SET quantity = ?, notes = ?, updated_at = ?
 		WHERE id = ?
-	`, string(allocatedJSON), assignment.UpdatedAt, assignment.ID)
+	`, assignment.Quantity, assignment.Notes, assignment.UpdatedAt, assignment.ID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update assignment: %w", err)

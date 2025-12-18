@@ -9,7 +9,8 @@ type Assignment struct {
 	ID        string    `json:"id"`
 	ServiceID string    `json:"service_id"`
 	ComputeID string    `json:"compute_id"`
-	Allocated Resources `json:"allocated"` // Actual resources allocated
+	Quantity  int       `json:"quantity"`
+	Notes     string    `json:"notes,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

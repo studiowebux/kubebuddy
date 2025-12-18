@@ -23,6 +23,10 @@ func (s *Server) listPortAssignments(c *gin.Context) {
 		return
 	}
 
+	if assignments == nil {
+		assignments = []*domain.PortAssignment{}
+	}
+
 	c.JSON(http.StatusOK, assignments)
 }
 

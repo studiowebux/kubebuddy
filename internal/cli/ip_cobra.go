@@ -197,6 +197,10 @@ func newIPCreateCmd() *cobra.Command {
 		return []string{"available", "assigned", "reserved"}, cobra.ShellCompDirectiveNoFileComp
 	})
 
+	cmd.RegisterFlagCompletionFunc("provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeProviders(), cobra.ShellCompDirectiveNoFileComp
+	})
+
 	cmd.RegisterFlagCompletionFunc("region", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeRegions(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -257,12 +261,16 @@ func newIPAssignCmd() *cobra.Command {
 				return fmt.Errorf("failed to resolve compute: %w", err)
 			}
 
-			// Note: IP addresses are resolved by UUID only (no name resolution for IPs)
+			// Resolve IP by address or ID
+			ip, err := c.ResolveIP(ctx, ipID)
+			if err != nil {
+				return fmt.Errorf("failed to resolve IP: %w", err)
+			}
 
 			assignment := &domain.ComputeIP{
 				ID:        uuid.New().String(),
 				ComputeID: compute.ID,
-				IPID:      ipID,
+				IPID:      ip.ID,
 				IsPrimary: isPrimary,
 				CreatedAt: time.Now(),
 			}
@@ -278,7 +286,7 @@ func newIPAssignCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&computeID, "compute", "", "Compute name or ID (required)")
-	cmd.Flags().StringVar(&ipID, "ip", "", "IP address ID (required)")
+	cmd.Flags().StringVar(&ipID, "ip", "", "IP address or ID (required)")
 	cmd.Flags().BoolVar(&isPrimary, "primary", false, "Set as primary IP")
 
 	cmd.MarkFlagRequired("compute")
@@ -384,13 +392,13 @@ func completeIPIDs(toComplete string) []string {
 
 	var completions []string
 	for _, ip := range ips {
-		// Format: ID \t Address (Type - Provider/Region)
-		completions = append(completions, ip.ID+"\t"+ip.Address+" ("+string(ip.Type)+" - "+ip.Provider+"/"+ip.Region+")")
+		// Format: Address \t Type - Provider/Region
+		completions = append(completions, ip.Address+"\t"+string(ip.Type)+" - "+ip.Provider+"/"+ip.Region)
 	}
 
 	sort.Slice(completions, func(i, j int) bool {
-		addri := strings.Split(completions[i], "\t")[1]
-		addrj := strings.Split(completions[j], "\t")[1]
+		addri := strings.Split(completions[i], "\t")[0]
+		addrj := strings.Split(completions[j], "\t")[0]
 		return addri < addrj
 	})
 	return completions

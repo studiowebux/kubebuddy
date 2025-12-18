@@ -220,10 +220,10 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 
 			fmt.Printf("### %s\n\n", service.Name)
 
-			// Allocated resources
-			if len(assignment.Allocated) > 0 {
-				fmt.Printf("**Allocated Resources:**\n")
-				for k, v := range assignment.Allocated {
+			// Show service max spec (used for planning)
+			if len(service.MaxSpec) > 0 {
+				fmt.Printf("**Max Resources (used for planning):**\n")
+				for k, v := range service.MaxSpec {
 					fmt.Printf("- %s: %v\n", k, v)
 				}
 				fmt.Println()
@@ -416,14 +416,20 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 			totalStorageGB += si.size * float64(si.quantity)
 		}
 
-		// Calculate allocated resources from assignments
+		// Calculate allocated resources from assignments using service MaxSpec
 		var allocatedCores int
 		var allocatedMemoryMB float64
 		var allocatedVRAMMB float64
 		var allocatedStorageGB float64
 
 		for _, assignment := range assignments {
-			if cores, ok := assignment.Allocated["cores"]; ok {
+			// Fetch service to get MaxSpec
+			service, err := c.GetService(ctx, assignment.ServiceID)
+			if err != nil {
+				continue // Skip if service not found
+			}
+
+			if cores, ok := service.MaxSpec["cores"]; ok {
 				switch v := cores.(type) {
 				case int:
 					allocatedCores += v
@@ -431,7 +437,7 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 					allocatedCores += int(v)
 				}
 			}
-			if mem, ok := assignment.Allocated["memory"]; ok {
+			if mem, ok := service.MaxSpec["memory"]; ok {
 				switch v := mem.(type) {
 				case int:
 					allocatedMemoryMB += float64(v)
@@ -439,7 +445,7 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 					allocatedMemoryMB += v
 				}
 			}
-			if vram, ok := assignment.Allocated["vram"]; ok {
+			if vram, ok := service.MaxSpec["vram"]; ok {
 				switch v := vram.(type) {
 				case int:
 					allocatedVRAMMB += float64(v)
@@ -447,7 +453,7 @@ func printComputeReport(c *client.Client, computeID string, detailedJournal bool
 					allocatedVRAMMB += v
 				}
 			}
-			if nvme, ok := assignment.Allocated["nvme"]; ok {
+			if nvme, ok := service.MaxSpec["nvme"]; ok {
 				switch v := nvme.(type) {
 				case int:
 					allocatedStorageGB += float64(v)

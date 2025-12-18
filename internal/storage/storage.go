@@ -152,6 +152,7 @@ type ComputeIPRepository interface {
 	Unassign(ctx context.Context, id string) error
 	UnassignByIP(ctx context.Context, ipID string) error
 	GetByComputeAndIP(ctx context.Context, computeID, ipID string) (*domain.ComputeIP, error)
+	List(ctx context.Context) ([]*domain.ComputeIP, error)
 	ListByCompute(ctx context.Context, computeID string) ([]*domain.ComputeIP, error)
 	ListByIP(ctx context.Context, ipID string) ([]*domain.ComputeIP, error)
 	GetPrimaryIP(ctx context.Context, computeID string) (*domain.ComputeIP, error)

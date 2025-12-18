@@ -24,16 +24,25 @@ func (s *Server) listIPAddresses(c *gin.Context) {
 		return
 	}
 
+	if ips == nil {
+		ips = []*domain.IPAddress{}
+	}
+
 	c.JSON(http.StatusOK, ips)
 }
 
 func (s *Server) getIPAddress(c *gin.Context) {
-	id := c.Param("id")
+	idOrAddress := c.Param("id")
 
-	ip, err := s.store.IPAddresses().Get(c.Request.Context(), id)
+	// Try to get by ID first
+	ip, err := s.store.IPAddresses().Get(c.Request.Context(), idOrAddress)
 	if err != nil {
-		handleError(c, http.StatusNotFound, "IP address not found", err)
-		return
+		// If not found by ID, try by address
+		ip, err = s.store.IPAddresses().GetByAddress(c.Request.Context(), idOrAddress)
+		if err != nil {
+			handleError(c, http.StatusNotFound, "IP address not found", err)
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, ip)
@@ -216,13 +225,17 @@ func (s *Server) listComputeIPs(c *gin.Context) {
 	} else if ipID != "" {
 		assignments, err = s.store.ComputeIPs().ListByIP(c.Request.Context(), ipID)
 	} else {
-		handleError(c, http.StatusBadRequest, "compute_id or ip_id query parameter required", nil)
-		return
+		// If no filter, return all IP assignments
+		assignments, err = s.store.ComputeIPs().List(c.Request.Context())
 	}
 
 	if err != nil {
 		handleError(c, http.StatusInternalServerError, "failed to list assignments", err)
 		return
+	}
+
+	if assignments == nil {
+		assignments = []*domain.ComputeIP{}
 	}
 
 	c.JSON(http.StatusOK, assignments)

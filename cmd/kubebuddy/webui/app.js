@@ -79,8 +79,14 @@ async function loadView(view) {
             case 'assignments':
                 await renderAssignmentsView();
                 break;
+            case 'capacity':
+                await renderCapacitySummaryView();
+                break;
             case 'ips':
                 await renderIPsView();
+                break;
+            case 'ip-assignments':
+                await renderIPAssignmentsView();
                 break;
             case 'dns':
                 await renderDNSView();
@@ -269,7 +275,8 @@ async function renderAssignmentsView() {
                 <tr>
                     <th>Service</th>
                     <th>Compute</th>
-                    <th>Allocated Resources</th>
+                    <th>Quantity</th>
+                    <th>Notes</th>
                     <th>Created</th>
                 </tr>
             </thead>
@@ -278,7 +285,8 @@ async function renderAssignmentsView() {
                     <tr>
                         <td><strong>${escapeHtml(serviceMap[a.service_id] || a.service_id)}</strong></td>
                         <td><strong>${escapeHtml(computeMap[a.compute_id] || a.compute_id)}</strong></td>
-                        <td class="wrap"><small>${JSON.stringify(a.allocated)}</small></td>
+                        <td>${a.quantity || 1}</td>
+                        <td class="wrap">${escapeHtml(a.notes || '-')}</td>
                         <td>${new Date(a.created_at).toLocaleString()}</td>
                     </tr>
                 `).join('')}
@@ -286,6 +294,72 @@ async function renderAssignmentsView() {
         </table>
         </div>
         `}
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+}
+
+// Capacity Summary View
+async function renderCapacitySummaryView() {
+    const report = await fetchAPI('/capacity/report');
+
+    const html = `
+        <div class="view-header">
+            <h2>Infrastructure Capacity Summary</h2>
+        </div>
+
+        <div class="report-section">
+            <h3>Overview</h3>
+            <div class="report-info">
+                <div class="report-info-item">
+                    <label>Total Computes</label>
+                    <div class="value">${report.total_computes}</div>
+                </div>
+                <div class="report-info-item">
+                    <label>Active Computes</label>
+                    <div class="value">${report.active_computes}</div>
+                </div>
+                <div class="report-info-item">
+                    <label>Total Services</label>
+                    <div class="value">${report.total_services}</div>
+                </div>
+                <div class="report-info-item">
+                    <label>Total Assignments</label>
+                    <div class="value">${report.total_assignments}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h3>Compute Resources</h3>
+            <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Compute</th>
+                        <th>Allocated Resources</th>
+                        <th>Available Resources</th>
+                        <th>Statistics (Min/Max/Avg/Median)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${report.compute_utilization.map(cu => `
+                        <tr>
+                            <td><strong>${escapeHtml(cu.compute.name)}</strong></td>
+                            <td class="wrap"><small>${formatResourceSpec(cu.allocated)}</small></td>
+                            <td class="wrap"><small>${formatResourceSpec(cu.available)}</small></td>
+                            <td class="wrap"><small>${cu.statistics ?
+                                `Min: ${formatResourceSpec(cu.statistics.min)}<br>
+                                 Max: ${formatResourceSpec(cu.statistics.max)}<br>
+                                 Avg: ${formatResourceSpec(cu.statistics.avg)}<br>
+                                 Median: ${formatResourceSpec(cu.statistics.median)}` :
+                                '-'}</small></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            </div>
+        </div>
     `;
 
     document.getElementById('main-content').innerHTML = html;
@@ -323,6 +397,57 @@ async function renderIPsView() {
                         <td class="actions">
                             <button class="btn btn-danger" onclick="deleteIP('${ip.id}')">Delete</button>
                         </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        </div>
+        `}
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+}
+
+// IP Assignments View
+async function renderIPAssignmentsView() {
+    const assignments = await fetchAPI('/ip-assignments');
+    state.data.ipAssignments = assignments;
+
+    // Load computes and IPs for display
+    const computes = state.data.computes || await fetchAPI('/computes');
+    state.data.computes = computes;
+    const ips = state.data.ips || await fetchAPI('/ips');
+    state.data.ips = ips;
+
+    const computeMap = {};
+    computes.forEach(c => computeMap[c.id] = c.name);
+    const ipMap = {};
+    ips.forEach(ip => ipMap[ip.id] = ip.address);
+
+    const html = `
+        <div class="view-header">
+            <h2>IP Assignments</h2>
+        </div>
+        ${assignments.length === 0 ? '<div class="empty-state"><p>No IP assignments found</p></div>' : `
+        <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Compute</th>
+                    <th>IP Address</th>
+                    <th>Interface</th>
+                    <th>Primary</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${assignments.map(a => `
+                    <tr>
+                        <td><strong>${escapeHtml(computeMap[a.compute_id] || a.compute_id)}</strong></td>
+                        <td><strong>${escapeHtml(ipMap[a.ip_id] || a.ip_id)}</strong></td>
+                        <td>${escapeHtml(a.interface_name || '-')}</td>
+                        <td>${a.is_primary ? '✓' : ''}</td>
+                        <td>${new Date(a.created_at).toLocaleString()}</td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -506,7 +631,7 @@ async function renderJournalView() {
                         <td><strong>${escapeHtml(computeMap[j.compute_id] || j.compute_id)}</strong></td>
                         <td>${escapeHtml(j.category)}</td>
                         <td class="wrap">${escapeHtml(j.content)}</td>
-                        <td>${new Date(j.timestamp).toLocaleString()}</td>
+                        <td>${new Date(j.created_at).toLocaleString()}</td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -728,27 +853,77 @@ async function loadComputeReport(computeId) {
             totalStorageGB += si.size * si.quantity;
         });
 
-        // Calculate allocated resources
-        let allocatedCores = 0;
-        let allocatedMemoryMB = 0;
-        let allocatedVRAMMB = 0;
-        let allocatedStorageGB = 0;
+        // Calculate statistics (min/max/avg/median) for each resource
+        // Min = sum of all min_spec, Max = sum of all max_spec
+        // Avg/Median = based on max_spec values only
+        let totalMinCores = 0, totalMaxCores = 0;
+        let totalMinMemory = 0, totalMaxMemory = 0;
+        let totalMinVram = 0, totalMaxVram = 0;
+        let totalMinStorage = 0, totalMaxStorage = 0;
+
+        const maxCoresValues = [];
+        const maxMemoryValues = [];
+        const maxVramValues = [];
+        const maxStorageValues = [];
 
         (report.service_assignments || []).forEach(a => {
-            if (a.allocated) {
-                allocatedCores += a.allocated.cores || 0;
-                allocatedMemoryMB += a.allocated.memory || 0;
-                allocatedVRAMMB += a.allocated.vram || 0;
-                allocatedStorageGB += (a.allocated.nvme || 0) + (a.allocated.sata || 0);
+            const service = serviceMap[a.service_id];
+            const quantity = a.quantity || 1;
+
+            if (service && service.min_spec) {
+                totalMinCores += (service.min_spec.cores || 0) * quantity;
+                totalMinMemory += (service.min_spec.memory || 0) * quantity;
+                totalMinVram += (service.min_spec.vram || 0) * quantity;
+                totalMinStorage += ((service.min_spec.nvme || 0) + (service.min_spec.sata || 0)) * quantity;
+            }
+
+            if (service && service.max_spec) {
+                const maxCores = (service.max_spec.cores || 0) * quantity;
+                const maxMemory = (service.max_spec.memory || 0) * quantity;
+                const maxVram = (service.max_spec.vram || 0) * quantity;
+                const maxStorage = ((service.max_spec.nvme || 0) + (service.max_spec.sata || 0)) * quantity;
+
+                totalMaxCores += maxCores;
+                totalMaxMemory += maxMemory;
+                totalMaxVram += maxVram;
+                totalMaxStorage += maxStorage;
+
+                maxCoresValues.push(maxCores);
+                maxMemoryValues.push(maxMemory);
+                maxVramValues.push(maxVram);
+                maxStorageValues.push(maxStorage);
             }
         });
-        // Calculate utilization percentages
+
+        const calcAvgMedian = (values) => {
+            if (values.length === 0) return { avg: 0, median: 0 };
+            const sorted = values.slice().sort((a, b) => a - b);
+            const total = values.reduce((sum, v) => sum + v, 0);
+            const median = sorted.length % 2 === 0 ?
+                (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 :
+                sorted[Math.floor(sorted.length / 2)];
+            return {
+                avg: total / values.length,
+                median: median
+            };
+        };
+
+        const coresAvgMed = calcAvgMedian(maxCoresValues);
+        const memoryAvgMed = calcAvgMedian(maxMemoryValues);
+        const vramAvgMed = calcAvgMedian(maxVramValues);
+        const storageAvgMed = calcAvgMedian(maxStorageValues);
+
+        const coresStats = { min: totalMinCores, max: totalMaxCores, avg: coresAvgMed.avg, median: coresAvgMed.median, total: totalMaxCores };
+        const memoryStats = { min: totalMinMemory, max: totalMaxMemory, avg: memoryAvgMed.avg, median: memoryAvgMed.median, total: totalMaxMemory };
+        const vramStats = { min: totalMinVram, max: totalMaxVram, avg: vramAvgMed.avg, median: vramAvgMed.median, total: totalMaxVram };
+        const storageStats = { min: totalMinStorage, max: totalMaxStorage, avg: storageAvgMed.avg, median: storageAvgMed.median, total: totalMaxStorage };
+        // Calculate utilization percentages using total allocated
         const totalMemoryMB = totalMemoryGB * 1024;
         const totalVRAMMB = totalVRAMGB * 1024;
-        const coresUtil = totalCores > 0 ? (allocatedCores / totalCores * 100).toFixed(1) : '0.0';
-        const memUtil = totalMemoryMB > 0 ? (allocatedMemoryMB / totalMemoryMB * 100).toFixed(1) : '0.0';
-        const vramUtil = totalVRAMMB > 0 ? (allocatedVRAMMB / totalVRAMMB * 100).toFixed(1) : '0.0';
-        const storageUtil = totalStorageGB > 0 ? (allocatedStorageGB / totalStorageGB * 100).toFixed(1) : '0.0';
+        const coresUtil = totalCores > 0 ? (coresStats.total / totalCores * 100).toFixed(1) : '0.0';
+        const memUtil = totalMemoryMB > 0 ? (memoryStats.total / totalMemoryMB * 100).toFixed(1) : '0.0';
+        const vramUtil = totalVRAMMB > 0 ? (vramStats.total / totalVRAMMB * 100).toFixed(1) : '0.0';
+        const storageUtil = totalStorageGB > 0 ? (storageStats.total / totalStorageGB * 100).toFixed(1) : '0.0';
 
         const html = `
             <div class="report-section">
@@ -785,7 +960,7 @@ async function loadComputeReport(computeId) {
 
             ${totalCores > 0 || totalMemoryGB > 0 || totalStorageGB > 0 ? `
             <div class="report-section">
-                <h3>Resource Summary</h3>
+                <h3>Resource Summary - Total</h3>
                 <div class="report-info">
                     ${totalCores > 0 ? `
                     <div class="report-info-item">
@@ -808,9 +983,38 @@ async function loadComputeReport(computeId) {
                         <div class="value">${Math.round(totalStorageGB)} GB <small>(${storageUtil}% allocated)</small></div>
                     </div>` : ''}
                 </div>
+            </div>
 
-                ${Object.keys(raidGroups).length > 0 || nonRaidStorage.length > 0 ? `
-                <h4 style="margin-top: 20px;">Storage Configuration</h4>
+            <div class="report-section">
+                <h3>Resource Summary - Statistics (Min/Max/Avg/Median)</h3>
+                <div class="report-info">
+                    ${totalCores > 0 ? `
+                    <div class="report-info-item">
+                        <label>Cores</label>
+                        <div class="value"><small>${coresStats.min.toFixed(1)} (${(coresStats.min / totalCores * 100).toFixed(1)}%) / ${coresStats.max.toFixed(1)} (${(coresStats.max / totalCores * 100).toFixed(1)}%) / ${coresStats.avg.toFixed(1)} (${(coresStats.avg / totalCores * 100).toFixed(1)}%) / ${coresStats.median.toFixed(1)} (${(coresStats.median / totalCores * 100).toFixed(1)}%)</small></div>
+                    </div>` : ''}
+                    ${totalMemoryGB > 0 ? `
+                    <div class="report-info-item">
+                        <label>Memory (MB)</label>
+                        <div class="value"><small>${memoryStats.min.toFixed(0)} (${(memoryStats.min / (totalMemoryGB * 1024) * 100).toFixed(1)}%) / ${memoryStats.max.toFixed(0)} (${(memoryStats.max / (totalMemoryGB * 1024) * 100).toFixed(1)}%) / ${memoryStats.avg.toFixed(0)} (${(memoryStats.avg / (totalMemoryGB * 1024) * 100).toFixed(1)}%) / ${memoryStats.median.toFixed(0)} (${(memoryStats.median / (totalMemoryGB * 1024) * 100).toFixed(1)}%)</small></div>
+                    </div>` : ''}
+                    ${totalVRAMGB > 0 ? `
+                    <div class="report-info-item">
+                        <label>VRAM (MB)</label>
+                        <div class="value"><small>${vramStats.min.toFixed(0)} (${(vramStats.min / (totalVRAMGB * 1024) * 100).toFixed(1)}%) / ${vramStats.max.toFixed(0)} (${(vramStats.max / (totalVRAMGB * 1024) * 100).toFixed(1)}%) / ${vramStats.avg.toFixed(0)} (${(vramStats.avg / (totalVRAMGB * 1024) * 100).toFixed(1)}%) / ${vramStats.median.toFixed(0)} (${(vramStats.median / (totalVRAMGB * 1024) * 100).toFixed(1)}%)</small></div>
+                    </div>` : ''}
+                    ${totalStorageGB > 0 ? `
+                    <div class="report-info-item">
+                        <label>Storage (GB)</label>
+                        <div class="value"><small>${storageStats.min.toFixed(0)} (${(storageStats.min / totalStorageGB * 100).toFixed(1)}%) / ${storageStats.max.toFixed(0)} (${(storageStats.max / totalStorageGB * 100).toFixed(1)}%) / ${storageStats.avg.toFixed(0)} (${(storageStats.avg / totalStorageGB * 100).toFixed(1)}%) / ${storageStats.median.toFixed(0)} (${(storageStats.median / totalStorageGB * 100).toFixed(1)}%)</small></div>
+                    </div>` : ''}
+                </div>
+            </div>
+            ` : ''}
+
+            ${Object.keys(raidGroups).length > 0 || nonRaidStorage.length > 0 ? `
+            <div class="report-section">
+                <h3>Storage Configuration</h3>
                 <div class="table-wrapper">
                 <table>
                     <thead>
@@ -842,7 +1046,6 @@ async function loadComputeReport(computeId) {
                     </tbody>
                 </table>
                 </div>
-                ` : ''}
             </div>
             ` : ''}
 
@@ -896,7 +1099,8 @@ async function loadComputeReport(computeId) {
                     <thead>
                         <tr>
                             <th>Service</th>
-                            <th>Allocated Resources</th>
+                            <th>Quantity</th>
+                            <th>Notes</th>
                             <th>Created</th>
                         </tr>
                     </thead>
@@ -906,7 +1110,8 @@ async function loadComputeReport(computeId) {
                             return `
                             <tr>
                                 <td><strong>${escapeHtml(service.name || a.service_id)}</strong></td>
-                                <td class="wrap"><small>${JSON.stringify(a.allocated)}</small></td>
+                                <td>${a.quantity || 1}</td>
+                                <td class="wrap">${escapeHtml(a.notes || '-')}</td>
                                 <td>${new Date(a.created_at).toLocaleString()}</td>
                             </tr>
                             `;
@@ -1421,13 +1626,24 @@ function showCreatePortModal() {
     });
 }
 
-function showCreateJournalModal() {
+async function showCreateJournalModal() {
+    // Fetch computes for the dropdown
+    const computes = state.data.computes || await fetchAPI('/computes');
+    state.data.computes = computes;
+
+    const computeOptions = computes.map(c =>
+        `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+    ).join('');
+
     const html = `
         <h2>Create Journal Entry</h2>
         <form id="create-journal-form">
             <div class="form-group">
-                <label>Compute ID *</label>
-                <input type="text" name="compute_id" required>
+                <label>Compute *</label>
+                <select name="compute_id" required>
+                    <option value="">Select a compute...</option>
+                    ${computeOptions}
+                </select>
             </div>
             <div class="form-group">
                 <label>Category *</label>
@@ -1541,6 +1757,16 @@ document.addEventListener('click', (e) => {
     const modal = document.getElementById('modal');
     if (e.target === modal || e.target.classList.contains('close')) {
         closeModal();
+    }
+});
+
+// Close modal on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
     }
 });
 
@@ -1673,4 +1899,16 @@ function parseTags(str) {
         }
     });
     return tags;
+}
+
+function formatResourceSpec(spec) {
+    if (!spec) return '-';
+    const parts = [];
+    if (spec.cores) parts.push(`${spec.cores} cores`);
+    if (spec.memory) parts.push(`${(spec.memory / 1024).toFixed(1)} GB RAM`);
+    if (spec.vram) parts.push(`${(spec.vram / 1024).toFixed(1)} GB VRAM`);
+    if (spec.nvme) parts.push(`${spec.nvme} GB NVMe`);
+    if (spec.sata) parts.push(`${spec.sata} GB SATA`);
+    if (spec.storage) parts.push(`${spec.storage} GB Storage`);
+    return parts.length > 0 ? parts.join(', ') : '-';
 }
