@@ -79,6 +79,7 @@ type CapacityReportResponse struct {
 
 type ComputeUtilization struct {
 	Compute         *domain.Compute       `json:"compute"`
+	TotalResources  domain.Resources      `json:"total_resources"`
 	Allocated       domain.Resources      `json:"allocated"`
 	Available       domain.Resources      `json:"available"`
 	UtilizationPct  float64               `json:"utilization_pct"`
@@ -97,6 +98,29 @@ func (s *Server) capacityReport(c *gin.Context) {
 	if err != nil {
 		handleError(c, http.StatusInternalServerError, "failed to load computes", err)
 		return
+	}
+
+	// Populate compute resources from components
+	for _, compute := range computes {
+		// Get component assignments for this compute
+		componentAssignments, err := s.store.ComputeComponents().ListByCompute(c.Request.Context(), compute.ID)
+		if err != nil {
+			continue // Skip on error
+		}
+
+		if len(componentAssignments) > 0 {
+			// Load actual components
+			components := make([]*domain.Component, 0, len(componentAssignments))
+			for _, ca := range componentAssignments {
+				comp, err := s.store.Components().Get(c.Request.Context(), ca.ComponentID)
+				if err == nil {
+					components = append(components, comp)
+				}
+			}
+
+			// Calculate total resources from components
+			compute.Resources = compute.GetTotalResourcesFromComponents(components, componentAssignments)
+		}
 	}
 
 	services, err := s.store.Services().List(c.Request.Context())
@@ -179,6 +203,7 @@ func (s *Server) capacityReport(c *gin.Context) {
 
 		computeUtils = append(computeUtils, ComputeUtilization{
 			Compute:        compute,
+			TotalResources: compute.Resources,
 			Allocated:      allocated,
 			Available:      available,
 			UtilizationPct: avgUtil,
@@ -198,16 +223,17 @@ func (s *Server) capacityReport(c *gin.Context) {
 }
 
 // calculateResourceStatistics calculates min/max/avg/median for resources across assignments
-// Min = sum of all min_spec, Max = sum of all max_spec
-// Avg/Median = based on max_spec values only
+// All values are based on sum of max_spec (what services could use at maximum)
+// Min = smallest max_spec across all assignments
+// Max = sum of all max_spec (total if all services maxed out)
+// Avg = average max_spec value
+// Median = median max_spec value
 func calculateResourceStatistics(assignments []*domain.Assignment, servicesMap map[string]*domain.Service) *ResourceStatistics {
 	if len(assignments) == 0 {
 		return nil
 	}
 
-	// Collect min and max totals, and individual max values for avg/median
-	minTotals := make(map[string]float64)
-	maxTotals := make(map[string]float64)
+	// Collect individual max values for statistics
 	maxValues := make(map[string][]float64)
 
 	for _, assignment := range assignments {
@@ -221,21 +247,7 @@ func calculateResourceStatistics(assignments []*domain.Assignment, servicesMap m
 			quantity = 1
 		}
 
-		// Process MinSpec for totals
-		for key, value := range service.MinSpec {
-			var floatVal float64
-			switch v := value.(type) {
-			case int:
-				floatVal = float64(v) * float64(quantity)
-			case float64:
-				floatVal = v * float64(quantity)
-			default:
-				continue
-			}
-			minTotals[key] += floatVal
-		}
-
-		// Process MaxSpec for totals and individual values
+		// Process MaxSpec
 		for key, value := range service.MaxSpec {
 			var floatVal float64
 			switch v := value.(type) {
@@ -246,7 +258,6 @@ func calculateResourceStatistics(assignments []*domain.Assignment, servicesMap m
 			default:
 				continue
 			}
-			maxTotals[key] += floatVal
 			maxValues[key] = append(maxValues[key], floatVal)
 		}
 	}
@@ -257,52 +268,46 @@ func calculateResourceStatistics(assignments []*domain.Assignment, servicesMap m
 	avg := make(domain.Resources)
 	median := make(domain.Resources)
 
-	// Get all unique resource keys
-	allKeys := make(map[string]bool)
-	for key := range minTotals {
-		allKeys[key] = true
-	}
-	for key := range maxTotals {
-		allKeys[key] = true
-	}
-
-	for key := range allKeys {
-		// Min is sum of all min_spec
-		if val, ok := minTotals[key]; ok {
-			min[key] = val
+	for key, values := range maxValues {
+		if len(values) == 0 {
+			continue
 		}
+
+		// Min is the smallest max_spec value
+		minVal := values[0]
+		for _, v := range values {
+			if v < minVal {
+				minVal = v
+			}
+		}
+		min[key] = minVal
 
 		// Max is sum of all max_spec
-		if val, ok := maxTotals[key]; ok {
-			max[key] = val
+		sum := 0.0
+		for _, v := range values {
+			sum += v
 		}
+		max[key] = sum
 
-		// Avg and Median based on max_spec values
-		if values, ok := maxValues[key]; ok && len(values) > 0 {
-			// Average
-			sum := 0.0
-			for _, v := range values {
-				sum += v
-			}
-			avg[key] = sum / float64(len(values))
+		// Average
+		avg[key] = sum / float64(len(values))
 
-			// Median (sort values)
-			sortedValues := make([]float64, len(values))
-			copy(sortedValues, values)
-			// Simple bubble sort for small arrays
-			for i := 0; i < len(sortedValues); i++ {
-				for j := i + 1; j < len(sortedValues); j++ {
-					if sortedValues[i] > sortedValues[j] {
-						sortedValues[i], sortedValues[j] = sortedValues[j], sortedValues[i]
-					}
+		// Median (sort values)
+		sortedValues := make([]float64, len(values))
+		copy(sortedValues, values)
+		// Simple bubble sort for small arrays
+		for i := 0; i < len(sortedValues); i++ {
+			for j := i + 1; j < len(sortedValues); j++ {
+				if sortedValues[i] > sortedValues[j] {
+					sortedValues[i], sortedValues[j] = sortedValues[j], sortedValues[i]
 				}
 			}
+		}
 
-			if len(sortedValues)%2 == 0 {
-				median[key] = (sortedValues[len(sortedValues)/2-1] + sortedValues[len(sortedValues)/2]) / 2
-			} else {
-				median[key] = sortedValues[len(sortedValues)/2]
-			}
+		if len(sortedValues)%2 == 0 {
+			median[key] = (sortedValues[len(sortedValues)/2-1] + sortedValues[len(sortedValues)/2]) / 2
+		} else {
+			median[key] = sortedValues[len(sortedValues)/2]
 		}
 	}
 

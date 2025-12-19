@@ -91,6 +91,7 @@ func newAssignmentCreateCmd() *cobra.Command {
 		serviceID string
 		computeID string
 		force     bool
+		quantity  int
 	)
 
 	cmd := &cobra.Command{
@@ -115,10 +116,16 @@ func newAssignmentCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to resolve compute: %w", err)
 			}
 
+			// Default quantity to 1 if not specified
+			if quantity == 0 {
+				quantity = 1
+			}
+
 			assignment := &domain.Assignment{
 				ID:        uuid.New().String(),
 				ServiceID: service.ID,
 				ComputeID: compute.ID,
+				Quantity:  quantity,
 			}
 
 			result, err := c.CreateAssignment(context.Background(), assignment, force)
@@ -134,6 +141,7 @@ func newAssignmentCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&serviceID, "service", "", "Service ID or name (required)")
 	cmd.Flags().StringVar(&computeID, "compute", "", "Compute ID or name (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "Force assignment even if resources insufficient")
+	cmd.Flags().IntVar(&quantity, "quantity", 1, "Number of service instances (default: 1)")
 
 	cmd.MarkFlagRequired("service")
 	cmd.MarkFlagRequired("compute")

@@ -22,6 +22,10 @@ func (s *Server) listFirewallRules(c *gin.Context) {
 		return
 	}
 
+	if rules == nil {
+		rules = []*domain.FirewallRule{}
+	}
+
 	c.JSON(http.StatusOK, rules)
 }
 

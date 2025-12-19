@@ -24,6 +24,10 @@ func (s *Server) listDNSRecords(c *gin.Context) {
 		return
 	}
 
+	if records == nil {
+		records = []*domain.DNSRecord{}
+	}
+
 	c.JSON(http.StatusOK, records)
 }
 

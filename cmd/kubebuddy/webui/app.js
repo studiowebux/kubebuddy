@@ -337,17 +337,34 @@ async function renderCapacitySummaryView() {
                 <thead>
                     <tr>
                         <th>Compute</th>
-                        <th>Allocated Resources</th>
-                        <th>Available Resources</th>
+                        <th>Total Resources</th>
+                        <th>Allocated (%)</th>
+                        <th>Available (%)</th>
                         <th>Statistics (Min/Max/Avg/Median)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${report.compute_utilization.map(cu => `
+                    ${report.compute_utilization.map(cu => {
+                        const total = cu.total_resources || {};
+                        const allocated = cu.allocated || {};
+                        const available = cu.available || {};
+
+                        return `
                         <tr>
                             <td><strong>${escapeHtml(cu.compute.name)}</strong></td>
-                            <td class="wrap"><small>${formatResourceSpec(cu.allocated)}</small></td>
-                            <td class="wrap"><small>${formatResourceSpec(cu.available)}</small></td>
+                            <td class="wrap"><small>${formatResourceSpec(total)}</small></td>
+                            <td class="wrap"><small>${Object.keys(total).length > 0 ? Object.keys(total).map(key => {
+                                const allocVal = allocated[key] || 0;
+                                const totalVal = total[key] || 0;
+                                const pct = totalVal > 0 ? ((allocVal / totalVal) * 100).toFixed(1) : '0.0';
+                                return `${key}: ${pct}%`;
+                            }).join('<br>') : '-'}</small></td>
+                            <td class="wrap"><small>${Object.keys(total).length > 0 ? Object.keys(total).map(key => {
+                                const availVal = available[key] || 0;
+                                const totalVal = total[key] || 0;
+                                const pct = totalVal > 0 ? ((availVal / totalVal) * 100).toFixed(1) : '0.0';
+                                return `${key}: ${pct}%`;
+                            }).join('<br>') : '-'}</small></td>
                             <td class="wrap"><small>${cu.statistics ?
                                 `Min: ${formatResourceSpec(cu.statistics.min)}<br>
                                  Max: ${formatResourceSpec(cu.statistics.max)}<br>
@@ -355,7 +372,8 @@ async function renderCapacitySummaryView() {
                                  Median: ${formatResourceSpec(cu.statistics.median)}` :
                                 '-'}</small></td>
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
             </div>
@@ -1904,11 +1922,11 @@ function parseTags(str) {
 function formatResourceSpec(spec) {
     if (!spec) return '-';
     const parts = [];
-    if (spec.cores) parts.push(`${spec.cores} cores`);
+    if (spec.cores) parts.push(`${Number(spec.cores).toFixed(1)} cores`);
     if (spec.memory) parts.push(`${(spec.memory / 1024).toFixed(1)} GB RAM`);
     if (spec.vram) parts.push(`${(spec.vram / 1024).toFixed(1)} GB VRAM`);
-    if (spec.nvme) parts.push(`${spec.nvme} GB NVMe`);
-    if (spec.sata) parts.push(`${spec.sata} GB SATA`);
-    if (spec.storage) parts.push(`${spec.storage} GB Storage`);
+    if (spec.nvme) parts.push(`${Number(spec.nvme).toFixed(1)} GB NVMe`);
+    if (spec.sata) parts.push(`${Number(spec.sata).toFixed(1)} GB SATA`);
+    if (spec.storage) parts.push(`${Number(spec.storage).toFixed(1)} GB Storage`);
     return parts.length > 0 ? parts.join(', ') : '-';
 }
